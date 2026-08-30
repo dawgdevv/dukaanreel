@@ -1,0 +1,11 @@
+name = "dukaanreel"
+compatibility_date = "2024-08-01"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "dukaanreel"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dukaanreel"
+database_id = "99a40736-fd4a-4532-8b4e-9f165d9cf833"
