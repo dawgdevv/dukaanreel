@@ -33,6 +33,7 @@ export default function ReelPreviewPage() {
   const [shop, setShop] = useState("Apni Dukaan");
   const [isPlaying, setIsPlaying] = useState(true);
   const [rendering, setRendering] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const applyReel = (data: PreviewReel) => {
@@ -120,23 +121,42 @@ export default function ReelPreviewPage() {
 
       <div className="bg-zinc-900 p-3">
           <div className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
-          {reel.videoUrl && <video src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay muted={!isPlaying} loop playsInline />}
-          <div className={`absolute inset-0 ${activeScene.bg} transition-colors`} />
-          <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, black 1px, transparent 0)", backgroundSize: "20px 20px" }} />
-          <div className="absolute inset-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={reel.imageUrl} alt="Studio product" className="h-full w-full object-contain" />
-            <div className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-black text-white backdrop-blur">
-              {shop || "Apni Dukaan"}
-            </div>
-          </div>
+          {reel.videoUrl ? (
+            <video ref={videoRef} src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay loop playsInline />
+          ) : (
+            <>
+              <div className={`absolute inset-0 ${activeScene.bg} transition-colors`} />
+              <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, black 1px, transparent 0)", backgroundSize: "20px 20px" }} />
+              <div className="absolute inset-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={reel.imageUrl} alt="Dressed model wearing the product" className="h-full w-full object-contain" />
+                <div className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-black text-white backdrop-blur">
+                  {shop || "Apni Dukaan"}
+                </div>
+              </div>
+            </>
+          )}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent p-4 pt-12">
             <p className="text-[18px] font-black leading-6 text-white drop-shadow">{caption}</p>
             <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-bold text-white/80">{price} • DM karo <Heart className="h-3.5 w-3.5 fill-white text-white" /></p>
           </div>
-          <button onClick={() => setIsPlaying((v) => !v)} className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-xl">
+          {reel.videoUrl && <button
+            onClick={() => {
+              const video = videoRef.current;
+              if (!video) return;
+              if (video.paused) {
+                void video.play();
+                setIsPlaying(true);
+              } else {
+                video.pause();
+                setIsPlaying(false);
+              }
+            }}
+            className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-xl"
+            aria-label={isPlaying ? "Pause video" : "Play video"}
+          >
             <Play className={`h-5 w-5 fill-zinc-900 text-zinc-900 ml-0.5 ${isPlaying ? "opacity-40" : ""}`} />
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -161,7 +181,7 @@ export default function ReelPreviewPage() {
           </div>
 
           <div className="mt-3 flex gap-2">
-            <button onClick={() => setMuted((m) => !m)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold ${muted ? "bg-zinc-900 text-white" : "bg-white text-zinc-900 ring-1 ring-zinc-200"}`}>
+            <button onClick={() => setMuted((m) => { const next = !m; if (videoRef.current) videoRef.current.muted = next; return next; })} className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold ${muted ? "bg-zinc-900 text-white" : "bg-white text-zinc-900 ring-1 ring-zinc-200"}`}>
               <span aria-hidden="true" className="relative h-4 w-4">
                 <Volume2 className={`absolute inset-0 h-4 w-4 text-[#16a34a] ${muted ? "hidden" : "block"}`} />
                 <VolumeX className={`absolute inset-0 h-4 w-4 ${muted ? "block" : "hidden"}`} />
@@ -197,7 +217,7 @@ export default function ReelPreviewPage() {
           <Share2 className="h-4 w-4" /> WhatsApp Pe Bhejo
         </a>
         <button onClick={makeVideo} disabled={rendering || Boolean(reel.videoUrl)} className="mt-2 flex h-10 w-full items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-900 disabled:opacity-60">
-          {rendering ? "Product reel ban rahi hai…" : reel.videoUrl ? "Video ready hai" : "Product Reel Banao"}
+          {rendering ? "10-sec reel ban rahi hai…" : reel.videoUrl ? "Video ready hai" : "10-sec Product Reel Banao"}
         </button>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a href={reel.imageUrl} download className="flex h-10 items-center justify-center gap-1.5 rounded-full bg-zinc-900 text-xs font-semibold text-white">
