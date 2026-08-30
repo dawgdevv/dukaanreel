@@ -75,11 +75,14 @@ async function composeFrame(options: RenderOptions, image: HTMLImageElement): Pr
   context.font = "900 42px Arial";
   context.fillText(options.price || "Fresh arrival", 82, 178);
   context.fillStyle = "#18181b";
+  context.font = "900 36px Arial";
+  context.fillText("Naya stock aa gaya!", 82, 1370);
+  context.fillStyle = "#18181b";
   context.font = "900 50px Arial";
-  drawWrappedText(context, options.caption, 82, 1510, 916, 64);
+  drawWrappedText(context, options.caption, 82, 1450, 916, 64);
   context.fillStyle = "#16a34a";
   context.font = "700 32px Arial";
-  context.fillText("DM karke order karo", 82, 1770);
+  context.fillText("Apna size / colour ke liye DM karo", 82, 1770);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not compose reel frame")), "image/png");
