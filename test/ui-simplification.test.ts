@@ -4,14 +4,36 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 describe("simplified clothing maker interface", () => {
-  it("uses a focused English camera call to action on the home page", () => {
+  it("presents the home page as a playful transformation lab", () => {
     const source = read("app/page.tsx");
 
-    expect(source).toContain("Open camera");
-    expect(source).toContain("T-shirt, shirt, saree, or top");
+    expect(source).toContain("Make something weird");
+    expect(source).toContain("Put anything on anything.");
+    expect(source).toContain("A can. A logo. A random idea.");
+    expect(source).not.toContain("polished product image");
+    expect(source).not.toContain("AI studio");
     expect(source).not.toContain("Photo Kheecho");
     expect(source).not.toContain("Recent");
     expect(source).not.toContain("listReels");
+  });
+
+  it("showcases the five supplied experiments in an accessible gallery", () => {
+    const source = read("app/page.tsx");
+
+    expect(source).toContain('import Image from "next/image"');
+    expect(source).toContain('aria-label="Weird transformation gallery"');
+    for (const label of ["Can → tee", "Label → saree", "Midnight mode", "Logo remix", "Soft chaos"]) {
+      expect(source).toContain(`label: "${label}"`);
+    }
+    expect(source.match(/\/experiments\//g)).toHaveLength(5);
+  });
+
+  it("uses experimental product messaging in page metadata", () => {
+    const source = read("app/layout.tsx");
+
+    expect(source).toContain("8x.dresses — Make Something Weird");
+    expect(source).toContain("Turn a can, logo, doodle, or any random idea into something wearable.");
+    expect(source).not.toContain("AI Clothing Maker");
   });
 
   it("keeps only the four requested clothing choices on capture", () => {

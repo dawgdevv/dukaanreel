@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "8x.dresses — AI Clothing Maker",
-  description: "Turn a photo of a T-shirt, shirt, saree, or top into a finished product image.",
+  title: "8x.dresses — Make Something Weird",
+  description: "Turn a can, logo, doodle, or any random idea into something wearable.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   },
   formatDetection: { telephone: false },
   openGraph: {
-    title: "8x.dresses — AI Clothing Maker",
-    description: "Turn a clothing photo into a finished product image.",
+    title: "8x.dresses — Make Something Weird",
+    description: "Turn a can, logo, doodle, or any random idea into something wearable.",
     type: "website",
   },
 };
