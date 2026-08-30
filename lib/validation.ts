@@ -31,16 +31,20 @@ export type CaptionResult = {
 };
 
 export function normalizeCaption(input: CaptionResult, price: number | null): CaptionResult {
-  const safeCaption = input.caption.trim().replace(/\s+/g, " ");
+  const productName = typeof input.productName === "string" ? input.productName : "product";
+  const caption = typeof input.caption === "string" ? input.caption : "Ye product fresh hai — DM karo 💛";
+  const inputHashtags = Array.isArray(input.hashtags) ? input.hashtags : [];
+  const safeCaption = caption.trim().replace(/\s+/g, " ");
   const withoutPrice = safeCaption.replace(/₹\s?[\d,]+/g, "").replace(/\s{2,}/g, " ").trim();
   const pricedCaption = price === null ? withoutPrice : `${withoutPrice} — ₹${price.toLocaleString("en-IN")} only!`;
-  const hashtags = input.hashtags
+  const hashtags = inputHashtags
+    .filter((tag): tag is string => typeof tag === "string")
     .map((tag) => tag.trim().replace(/^#?/, "#").replace(/[^#\w\u0900-\u097F]/g, ""))
     .filter((tag) => tag.length > 1)
     .slice(0, 3);
 
   return {
-    productName: input.productName.trim().slice(0, 80) || "product",
+    productName: productName.trim().slice(0, 80) || "product",
     caption: pricedCaption.slice(0, 180),
     hashtags,
   };
@@ -55,4 +59,11 @@ export function buildWhatsAppUrl(caption: string, sharePath: string, price: stri
 export function fallbackCaption(price: number | null): CaptionResult {
   const caption = price === null ? "Ye product fresh hai — DM karo 💛" : `Ye product fresh hai — ₹${price.toLocaleString("en-IN")} only! DM karo 💛`;
   return { productName: "product", caption, hashtags: ["#newarrival", "#dukaanstyle", "#shoplocal"] };
+}
+
+export function buildVoiceText(productName: string, price: number | null, shopName: string): string {
+  const product = productName.trim().replace(/[#₹]/g, "").replace(/\s+/g, " ").slice(0, 60) || "naya product";
+  const shop = shopName.trim().replace(/[#₹]/g, "").replace(/\s+/g, " ").slice(0, 60) || "Apni Dukaan";
+  const offer = price === null ? "ab available hai" : `sirf ${price.toLocaleString("en-IN")} rupaye mein`;
+  return `${shop} par ${product}, ${offer}. Abhi WhatsApp par message karke order karein.`;
 }

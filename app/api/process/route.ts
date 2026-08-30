@@ -1,6 +1,6 @@
 import { createReel, putAsset, putOriginalAsset } from "@/lib/cloudflare";
-import { createStudioProductPhoto, createTryOnPhoto, generateCaption, removeBackground } from "@/lib/providers";
-import { isSupportedImageType, processInputSchema } from "@/lib/validation";
+import { createStudioProductPhoto, createTryOnPhoto, generateCaption, generateVoice, removeBackground } from "@/lib/providers";
+import { buildVoiceText, isSupportedImageType, processInputSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +34,14 @@ export async function POST(request: Request) {
     const finalUpload = putAsset(`${id}/product.${productExtension}`, product, studioResult.mimeType);
     const [caption, , imageUrl] = await Promise.all([captionPromise, originalUpload, finalUpload]);
     const captionText = caption.hashtags.length ? `${caption.caption} ${caption.hashtags.join(" ")}` : caption.caption;
+    const voiceText = buildVoiceText(caption.productName, parsed.data.price, parsed.data.shopName);
+    let audioUrl: string | null = null;
+    try {
+      const voice = await generateVoice(voiceText);
+      if (voice) audioUrl = await putAsset(`${id}/voice.mp3`, voice.bytes, voice.mimeType);
+    } catch (error) {
+      console.error("voice generation fallback", error instanceof Error ? error.message : "unknown error");
+    }
     const reel = await createReel({
       id,
       caption: captionText,
@@ -42,7 +50,8 @@ export async function POST(request: Request) {
       shopName: parsed.data.shopName,
       sceneId: parsed.data.sceneId,
       imageUrl,
-      audioUrl: null,
+      audioUrl,
+      voiceText,
       garmentCategory: parsed.data.garmentCategory,
       modelTemplateId: tryOnResult.templateId,
     });
@@ -53,7 +62,8 @@ export async function POST(request: Request) {
       share: `/r/${id}`,
       capabilities: {
         canRecordVideo: typeof MediaRecorder !== "undefined",
-        canUseTts: false,
+        canUseTts: Boolean(audioUrl),
+        voiceStatus: audioUrl ? "ready" : "unavailable",
         studioPhoto: "studio" in studioResult ? studioResult.studio : false,
         tryOnPhoto: tryOnResult.tryOn,
         modelTemplateId: tryOnResult.templateId,

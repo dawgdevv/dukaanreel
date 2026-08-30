@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Volume2, VolumeX, Pencil, Download, Share2, Play, Check, Heart } from "lucide-react";
@@ -12,6 +12,7 @@ type PreviewReel = {
   imageUrl: string;
   videoUrl: string | null;
   audioUrl: string | null;
+  voiceText: string | null;
   caption: string;
   price: number | null;
   shopName: string;
@@ -21,6 +22,8 @@ export default function ReelPreviewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [reel, setReel] = useState<PreviewReel | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const autoRenderStarted = useRef(false);
 
   const [scene, setScene] = useState<(typeof SCENES)[number]["id"]>("white");
   const [muted, setMuted] = useState(false);
@@ -59,7 +62,7 @@ export default function ReelPreviewPage() {
       });
   }, [id]);
 
-  const makeVideo = async () => {
+  const makeVideo = useCallback(async () => {
     if (!reel || rendering || reel.videoUrl) return;
     setRendering(true);
     try {
@@ -73,6 +76,26 @@ export default function ReelPreviewPage() {
     } finally {
       setRendering(false);
     }
+  }, [caption, id, price, reel, rendering, scene, shop]);
+
+  useEffect(() => {
+    if (!reel?.audioUrl || reel.videoUrl || autoRenderStarted.current) return;
+    autoRenderStarted.current = true;
+    void makeVideo();
+  }, [makeVideo, reel]);
+
+  const playVoice = async () => {
+    if (muted) return;
+    if (reel?.audioUrl && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(reel?.voiceText || caption);
+    utterance.lang = "hi-IN";
+    utterance.rate = 0.95;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
   };
 
   if (!reel) {
@@ -86,6 +109,7 @@ export default function ReelPreviewPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-white">
+      {reel.audioUrl && <audio ref={audioRef} src={reel.audioUrl} muted={muted} preload="auto" />}
       <header className="flex h-14 items-center justify-between border-b border-zinc-100 bg-white px-3">
         <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100">
           <ArrowLeft className="h-5 w-5" />
@@ -145,17 +169,10 @@ export default function ReelPreviewPage() {
               {muted ? "Muted" : "Suno"}
             </button>
             <button
-              onClick={() => {
-                const u = new SpeechSynthesisUtterance(caption);
-                u.lang = "hi-IN";
-                u.rate = 0.95;
-                if (muted) return;
-                speechSynthesis.cancel();
-                speechSynthesis.speak(u);
-              }}
+              onClick={() => void playVoice()}
               className="flex items-center justify-center rounded-full bg-[#16a34a] px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Sunao
+              {reel.audioUrl ? "Voice sunao" : "Sunao"}
             </button>
           </div>
         </div>
