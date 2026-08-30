@@ -4,14 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Image as ImageIcon, Zap, FlipHorizontal } from "lucide-react";
+import { requestCameraStream } from "@/lib/media/camera";
 
 export default function CapturePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraFileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string>("");
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [price, setPrice] = useState("799");
@@ -19,37 +22,31 @@ export default function CapturePage() {
   const [garmentCategory, setGarmentCategory] = useState<"shirt" | "kurti" | "dress" | "saree">("shirt");
   const [captured, setCaptured] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   const startCamera = async (mode: "environment" | "user") => {
+    if (starting) return;
     try {
       setError("");
-      if (stream) stream.getTracks().forEach((t) => t.stop());
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: mode,
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
-          aspectRatio: { ideal: 9 / 16 },
-        },
-        audio: false,
-      });
+      setStarting(true);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      const s = await requestCameraStream(navigator.mediaDevices, mode);
+      streamRef.current = s;
       setStream(s);
       if (videoRef.current) {
         videoRef.current.srcObject = s;
         await videoRef.current.play().catch(() => {});
       }
     } catch {
-      setError("Camera nahi khula Gallery se pick karo");
+      setError("Camera nahi khula. Browser settings se camera allow karo, ya Gallery se photo pick karo.");
+    } finally {
+      setStarting(false);
     }
   };
 
   useEffect(() => {
-    // Camera startup synchronizes browser media state and intentionally updates UI state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    startCamera(facing);
-    return () => stream?.getTracks().forEach((t) => t.stop());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facing]);
+    return () => streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   const doCapture = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -154,7 +151,11 @@ export default function CapturePage() {
         </Link>
         <span className="text-[14px] font-semibold tracking-tight drop-shadow">DukaanReel</span>
         <button
-          onClick={() => setFacing((f) => (f === "environment" ? "user" : "environment"))}
+          onClick={() => {
+            const next = facing === "environment" ? "user" : "environment";
+            setFacing(next);
+            if (stream) void startCamera(next);
+          }}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur"
           aria-label="Flip camera"
         >
@@ -217,7 +218,15 @@ export default function CapturePage() {
 
         {!captured && !stream && !error && (
           <div className="absolute inset-0 z-10 grid place-items-center p-8 text-center">
-            <p className="text-white/70 font-semibold">Camera khul raha hai…</p>
+            <div>
+              <p className="text-white/70 font-semibold">Photo lene ke liye camera access chahiye</p>
+              <button onClick={() => void startCamera(facing)} disabled={starting} className="mt-4 rounded-full bg-[#16a34a] px-6 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60">
+                {starting ? "Camera khul raha hai…" : "Camera kholo"}
+              </button>
+              <button onClick={() => cameraFileRef.current?.click()} className="mt-2 block w-full text-xs font-bold text-white/70 underline underline-offset-4">
+                Phone camera se photo lo
+              </button>
+            </div>
           </div>
         )}
 
@@ -225,9 +234,17 @@ export default function CapturePage() {
           <div className="absolute inset-0 z-10 grid place-items-center p-6">
             <div className="rounded-2xl bg-white p-5 text-center">
               <p className="text-sm font-bold text-zinc-900">{error}</p>
-              <button onClick={() => fileRef.current?.click()} className="mt-3 rounded-xl bg-[#16a34a] px-5 py-3 text-sm font-black text-white">
-                Gallery se pick karo
-              </button>
+              <div className="mt-3 flex justify-center gap-2">
+                <button onClick={() => void startCamera(facing)} disabled={starting} className="rounded-xl bg-[#16a34a] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+                  {starting ? "Camera khul raha hai…" : "Dobara try karo"}
+                </button>
+                <button onClick={() => fileRef.current?.click()} className="rounded-xl bg-zinc-100 px-5 py-3 text-sm font-black text-zinc-900">
+                  Gallery
+                </button>
+                <button onClick={() => cameraFileRef.current?.click()} className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-black text-white">
+                  Phone camera
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -265,6 +282,7 @@ export default function CapturePage() {
 
       <canvas ref={canvasRef} className="hidden" />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFilePick} />
+      <input ref={cameraFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFilePick} />
     </div>
   );
 }
