@@ -31,8 +31,11 @@ export default function ReelPreviewPage() {
   const [editing, setEditing] = useState(false);
   const [price, setPrice] = useState("");
   const [shop, setShop] = useState("Apni Dukaan");
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [renderStatus, setRenderStatus] = useState("");
+  const [renderError, setRenderError] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -66,14 +69,29 @@ export default function ReelPreviewPage() {
   const makeVideo = useCallback(async () => {
     if (!reel || rendering || reel.videoUrl) return;
     setRendering(true);
+    setRenderError("");
+    setRenderProgress(0);
+    setRenderStatus("Photo taiyar ho rahi hai…");
     try {
-      const blob = await renderReelVideo({ imageUrl: reel.imageUrl, caption, price, shopName: shop, scene, audioUrl: reel.audioUrl });
+      const blob = await renderReelVideo(
+        { imageUrl: reel.imageUrl, caption, price, shopName: shop, scene, audioUrl: reel.audioUrl },
+        (stage, progress) => {
+          setRenderProgress(Math.round(progress * 100));
+          setRenderStatus(stage === "loading" ? "Video engine load ho raha hai…" : stage === "rendering" ? "Effects aur voice jud rahe hain…" : "Photo taiyar ho rahi hai…");
+        },
+      );
+      setRenderProgress(96);
+      setRenderStatus("Video save ho rahi hai…");
       const token = sessionStorage.getItem("dukaanreel-upload-token") || btoa(id);
       const response = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": blob.type, "x-reel-id": id, "x-upload-token": token }, body: blob });
       if (!response.ok) throw new Error("Video upload failed");
-      setReel((current) => current ? { ...current, videoUrl: URL.createObjectURL(blob) } : current);
+      const result = await response.json() as { videoUrl: string };
+      setRenderProgress(100);
+      setRenderStatus("Video ready hai");
+      setReel((current) => current ? { ...current, videoUrl: result.videoUrl } : current);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Video render failed");
+      setRenderError(error instanceof Error ? error.message : "Video render failed");
+      setRenderStatus("");
     } finally {
       setRendering(false);
     }
@@ -122,7 +140,7 @@ export default function ReelPreviewPage() {
       <div className="bg-zinc-900 p-3">
           <div className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
           {reel.videoUrl ? (
-            <video ref={videoRef} src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay loop playsInline />
+            <video ref={videoRef} src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" muted={muted} loop playsInline />
           ) : (
             <>
               <div className={`absolute inset-0 ${activeScene.bg} transition-colors`} />
@@ -217,8 +235,14 @@ export default function ReelPreviewPage() {
           <Share2 className="h-4 w-4" /> WhatsApp Pe Bhejo
         </a>
         <button onClick={makeVideo} disabled={rendering || Boolean(reel.videoUrl)} className="mt-2 flex h-10 w-full items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-900 disabled:opacity-60">
-          {rendering ? "10-sec reel ban rahi hai…" : reel.videoUrl ? "Video ready hai" : "10-sec Product Reel Banao"}
+          {rendering ? `${renderStatus} ${renderProgress}%` : reel.videoUrl ? "Video ready hai" : "10-sec Product Reel Banao"}
         </button>
+        {rendering ? (
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100" role="progressbar" aria-label="Video rendering progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={renderProgress}>
+            <div className="h-full rounded-full bg-[#16a34a] transition-[width]" style={{ width: `${renderProgress}%` }} />
+          </div>
+        ) : null}
+        {renderError ? <p className="mt-2 text-center text-xs font-semibold text-red-600">{renderError} Dobara try karo.</p> : null}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a href={reel.imageUrl} download className="flex h-10 items-center justify-center gap-1.5 rounded-full bg-zinc-900 text-xs font-semibold text-white">
             <Download className="h-3.5 w-3.5" /> Download

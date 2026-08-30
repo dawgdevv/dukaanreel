@@ -1,6 +1,6 @@
 "use client";
 
-import { FFmpeg } from "@ffmpeg/ffmpeg";
+import type { FFmpeg } from "@ffmpeg/ffmpeg";
 import { buildFfmpegReelArgs } from "./ffmpeg-command";
 
 type RenderOptions = {
@@ -13,6 +13,7 @@ type RenderOptions = {
 };
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
+let reportRenderProgress: ((progress: number) => void) | null = null;
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -26,14 +27,23 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 async function getFfmpeg(): Promise<FFmpeg> {
   ffmpegPromise ??= (async () => {
+    const { FFmpeg } = await import("@ffmpeg/ffmpeg");
     const instance = new FFmpeg();
+    instance.on("progress", ({ progress }) => {
+      reportRenderProgress?.(Math.max(0, Math.min(progress, 1)));
+    });
     await instance.load({
-      coreURL: "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js",
-      wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.wasm",
+      coreURL: "/ffmpeg/ffmpeg-core.js",
+      wasmURL: "/ffmpeg/ffmpeg-core.wasm",
     });
     return instance;
   })();
-  return ffmpegPromise;
+  try {
+    return await ffmpegPromise;
+  } catch (error) {
+    ffmpegPromise = null;
+    throw error;
+  }
 }
 
 function drawWrappedText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): void {
@@ -89,26 +99,44 @@ async function composeFrame(options: RenderOptions, image: HTMLImageElement): Pr
   });
 }
 
-export async function renderReelVideo(options: RenderOptions): Promise<Blob> {
+export async function renderReelVideo(
+  options: RenderOptions,
+  onProgress?: (stage: "preparing" | "loading" | "rendering", progress: number) => void,
+): Promise<Blob> {
+  if (typeof WebAssembly === "undefined") throw new Error("This browser cannot create the video");
+  onProgress?.("preparing", 0.05);
   const image = await loadImage(options.imageUrl);
   const frame = await composeFrame(options, image);
+  onProgress?.("loading", 0.1);
   const ffmpeg = await getFfmpeg();
-  await ffmpeg.writeFile("frame.png", new Uint8Array(await frame.arrayBuffer()));
+  reportRenderProgress = (progress) => onProgress?.("rendering", 0.15 + progress * 0.8);
 
-  let hasAudio = false;
-  if (options.audioUrl) {
-    const response = await fetch(options.audioUrl);
-    if (response.ok) {
+  try {
+    await ffmpeg.writeFile("frame.png", new Uint8Array(await frame.arrayBuffer()));
+
+    let hasAudio = false;
+    if (options.audioUrl) {
+      const response = await fetch(options.audioUrl);
+      if (!response.ok) throw new Error("Voice audio could not be loaded");
       await ffmpeg.writeFile("audio.mp3", new Uint8Array(await response.arrayBuffer()));
       hasAudio = true;
     }
-  }
 
-  await ffmpeg.exec(buildFfmpegReelArgs(hasAudio));
-  const output = await ffmpeg.readFile("reel.mp4");
-  if (typeof output === "string") throw new Error("FFmpeg returned text instead of a video");
-  const outputBytes = new Uint8Array(output);
-  const ownedBuffer = new ArrayBuffer(outputBytes.byteLength);
-  new Uint8Array(ownedBuffer).set(outputBytes);
-  return new Blob([ownedBuffer], { type: "video/mp4" });
+    const exitCode = await ffmpeg.exec(buildFfmpegReelArgs(hasAudio));
+    if (exitCode !== 0) throw new Error("Video rendering failed");
+    const output = await ffmpeg.readFile("reel.mp4");
+    if (typeof output === "string") throw new Error("FFmpeg returned text instead of a video");
+    const outputBytes = new Uint8Array(output);
+    const ownedBuffer = new ArrayBuffer(outputBytes.byteLength);
+    new Uint8Array(ownedBuffer).set(outputBytes);
+    onProgress?.("rendering", 1);
+    return new Blob([ownedBuffer], { type: "video/mp4" });
+  } finally {
+    reportRenderProgress = null;
+    await Promise.allSettled([
+      ffmpeg.deleteFile("frame.png"),
+      ffmpeg.deleteFile("audio.mp3"),
+      ffmpeg.deleteFile("reel.mp4"),
+    ]);
+  }
 }

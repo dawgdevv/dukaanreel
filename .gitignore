@@ -29,6 +29,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# generated from the pinned @ffmpeg/core package
+/public/ffmpeg/
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
