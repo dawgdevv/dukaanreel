@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWhatsAppUrl,
+  buildVoiceText,
   isSupportedImageType,
   normalizeCaption,
   processInputSchema,
@@ -52,10 +53,33 @@ describe("caption normalization", () => {
     expect(result.caption).toContain("₹799");
     expect(result.hashtags).toHaveLength(3);
   });
+
+  it("handles malformed model hashtags without failing the pipeline", () => {
+    const result = normalizeCaption(
+      { productName: "kurti", caption: "Fresh kurti", hashtags: "#fresh" as unknown as string[] },
+      799,
+    );
+    expect(result.hashtags).toEqual([]);
+    expect(result.caption).toContain("₹799");
+  });
 });
 
 it("encodes Hindi WhatsApp share text", () => {
   const url = buildWhatsAppUrl("Ye kurti fresh hai", "/r/abc123", "799");
   expect(url).toContain("wa.me/?text=");
   expect(decodeURIComponent(url.split("?text=")[1])).toContain("₹799");
+});
+
+describe("voice script", () => {
+  it("uses the identified product, shop, and exact supplied price", () => {
+    const text = buildVoiceText("red kurti", 799, "Lajpat Boutique");
+    expect(text).toContain("Lajpat Boutique");
+    expect(text).toContain("red kurti");
+    expect(text).toContain("799 rupaye");
+    expect(text).toContain("WhatsApp");
+  });
+
+  it("does not invent a price when none was supplied", () => {
+    expect(buildVoiceText("saree", null, "Apni Dukaan")).not.toContain("rupaye");
+  });
 });

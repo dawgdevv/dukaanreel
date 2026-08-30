@@ -40,7 +40,7 @@ export default async function PublicSharePage({ params }: { params: Promise<{ id
         <div className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-2xl bg-zinc-900">
           <div className="absolute inset-0 bg-zinc-100" />
           <div className="absolute inset-0">
-            {reel.videoUrl && <video src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay muted loop playsInline />}
+            {reel.videoUrl && <video src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" controls loop playsInline />}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={reel.imageUrl} alt="Studio product" className="h-full w-full object-contain" />
           </div>

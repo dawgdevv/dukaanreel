@@ -103,6 +103,7 @@ export async function getReel(id: string): Promise<Reel | null> {
       sceneId: "white",
       imageUrl: MOCK_IMAGE,
       audioUrl: null,
+      voiceText: "Apni Dukaan par naya product, sirf 799 rupaye mein. Abhi WhatsApp par message karke order karein.",
       videoUrl: null,
       status: "ready",
       createdAt: new Date().toISOString(),

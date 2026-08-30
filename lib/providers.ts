@@ -148,11 +148,24 @@ export async function generateVoice(text: string): Promise<{ bytes: Uint8Array; 
   const key = process.env.ELEVENLABS_API_KEY;
   const voiceId = process.env.ELEVENLABS_VOICE_ID;
   if (!key || !voiceId || process.env.DEMO_MODE === "true") return null;
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, {
     method: "POST",
     headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
-    body: JSON.stringify({ text, model_id: "eleven_multilingual_v2", output_format: "mp3_44100_128" }),
+    body: JSON.stringify({
+      text,
+      model_id: process.env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2",
+      voice_settings: {
+        stability: 0.55,
+        similarity_boost: 0.75,
+        style: 0.2,
+        use_speaker_boost: true,
+        speed: 1.02,
+      },
+    }),
   });
-  if (!response.ok) throw new Error(`voice generation failed: ${response.status}`);
+  if (!response.ok) {
+    const requestId = response.headers.get("request-id");
+    throw new Error(`voice generation failed: ${response.status}${requestId ? ` (${requestId})` : ""}`);
+  }
   return { bytes: new Uint8Array(await response.arrayBuffer()), mimeType: "audio/mpeg" };
 }

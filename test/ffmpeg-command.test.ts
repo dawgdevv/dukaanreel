@@ -9,4 +9,12 @@ describe("FFmpeg reel command", () => {
       "-r", "30", "-frames:v", "300", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "reel.mp4",
     ]);
   });
+
+  it("adds the generated MP3 and pads silence to the ten-second duration", () => {
+    const args = buildFfmpegReelArgs(true);
+    expect(args).toContain("audio.mp3");
+    expect(args).toContain("aac");
+    expect(args).toContain("apad");
+    expect(args).not.toContain("-stream_loop");
+  });
 });

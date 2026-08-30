@@ -11,6 +11,7 @@ export type Reel = {
   sceneId: SceneId;
   imageUrl: string;
   audioUrl: string | null;
+  voiceText: string | null;
   videoUrl: string | null;
   status: ReelStatus;
   createdAt: string;
