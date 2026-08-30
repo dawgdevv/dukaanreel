@@ -17,6 +17,7 @@ export default function CapturePage() {
   const [price, setPrice] = useState("799");
   const [shopName, setShopName] = useState("");
   const [captured, setCaptured] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   const startCamera = async (mode: "environment" | "user") => {
     try {
@@ -42,6 +43,8 @@ export default function CapturePage() {
   };
 
   useEffect(() => {
+    // Camera startup synchronizes browser media state and intentionally updates UI state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     startCamera(facing);
     return () => stream?.getTracks().forEach((t) => t.stop());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,9 +114,27 @@ export default function CapturePage() {
     img.src = url;
   };
 
-  const goNext = () => {
-    const id = "demo-" + Math.floor(Math.random() * 9 + 1);
-    router.push(`/reel/${id}`);
+  const goNext = async () => {
+    if (!captured || processing) return;
+    setProcessing(true);
+    setError("");
+    try {
+      const image = await fetch(captured).then((response) => response.blob());
+      const form = new FormData();
+      form.append("image", image, "product.jpg");
+      form.append("price", price);
+      form.append("shopName", shopName || "Apni Dukaan");
+      form.append("sceneId", "white");
+      const response = await fetch("/api/process", { method: "POST", body: form });
+      const payload = await response.json() as { reel?: { id: string }; error?: string };
+      if (!response.ok || !payload.reel) throw new Error(payload.error || "Processing failed");
+      sessionStorage.setItem("dukaanreel-upload-token", btoa(payload.reel.id));
+      sessionStorage.setItem("dukaanreel-last-id", payload.reel.id);
+      router.push(`/reel/${payload.reel.id}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Reel nahi ban paayi. Dobara try karo.");
+      setProcessing(false);
+    }
   };
 
   return (
@@ -204,8 +225,8 @@ export default function CapturePage() {
                   <span className="block h-full w-full rounded-full bg-white" />
                 </button>
               ) : (
-                <button onClick={goNext} className="inline-flex h-11 items-center gap-1.5 rounded-full bg-[#16a34a] px-6 text-[14px] font-semibold text-white shadow-lg active:scale-95 transition">
-                  <Zap className="h-4 w-4" /> Reel Banao
+                <button onClick={goNext} disabled={processing} className="inline-flex h-11 items-center gap-1.5 rounded-full bg-[#16a34a] px-6 text-[14px] font-semibold text-white shadow-lg active:scale-95 transition disabled:opacity-60">
+                  <Zap className="h-4 w-4" /> {processing ? "Ban raha hai…" : "Reel Banao"}
                 </button>
               )}
             </div>
@@ -216,8 +237,8 @@ export default function CapturePage() {
           </div>
 
           {captured && (
-            <button onClick={goNext} className="mt-2 flex h-9 w-full max-w-md items-center justify-center rounded-full bg-white mx-6 text-[13px] font-semibold text-zinc-900">
-              Preview dekho
+            <button onClick={goNext} disabled={processing} className="mt-2 flex h-9 w-full max-w-md items-center justify-center rounded-full bg-white mx-6 text-[13px] font-semibold text-zinc-900 disabled:opacity-60">
+              {processing ? "Reel ban rahi hai…" : "Preview dekho"}
             </button>
           )}
         </div>

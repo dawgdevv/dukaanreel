@@ -40,7 +40,7 @@ Authentication, payments, multi-product catalogues, a general-purpose editor, cu
 | Video | Canvas renderer + `MediaRecorder`; `@ffmpeg/ffmpeg`/FFmpeg.wasm for optional WebM-to-MP4 conversion | Keeps rendering client-side and avoids Cloudflare Worker bundle/runtime limits while still using FFmpeg. |
 | Database | Cloudflare D1 (SQLite) | Matches the configured Cloudflare deployment and is sufficient for one anonymous `reels` table. |
 | Files | Cloudflare R2 | Stores cutout PNG, audio, and final video objects with Worker-controlled public URLs. |
-| Hosting | Cloudflare Pages + Workers / `next-on-pages` | Uses the existing Cloudflare setup and keeps API routes close to R2, D1, and Workers AI. |
+| Hosting | Cloudflare Pages + Workers / `@opennextjs/cloudflare` | Supports the repo’s Next 16 version while keeping API routes close to R2, D1, and Workers AI. |
 | Validation | Zod | Runtime validation of browser/server boundaries and AI output. |
 | Testing | Vitest for pure functions; Playwright for the core browser flow | Focus verification on the demo-critical path. |
 

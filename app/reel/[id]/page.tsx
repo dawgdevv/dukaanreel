@@ -4,27 +4,72 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Volume2, VolumeX, Pencil, Download, Share2, Play, Check, Heart } from "lucide-react";
-import { MOCK_REELS, MOCK_CAPTION, SCENES } from "@/lib/mock";
+import { SCENES } from "@/lib/mock";
+import { preferCapturedImage } from "@/lib/validation";
+import { renderReelVideo } from "@/lib/media/render-reel";
+
+type PreviewReel = {
+  id: string;
+  imageUrl: string;
+  videoUrl: string | null;
+  audioUrl: string | null;
+  caption: string;
+  price: string;
+};
 
 export default function ReelPreviewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const reel = MOCK_REELS.find((r) => r.id === id) ?? MOCK_REELS[0];
+  const [reel, setReel] = useState<PreviewReel | null>(null);
 
   const [scene, setScene] = useState<(typeof SCENES)[number]["id"]>("white");
   const [muted, setMuted] = useState(false);
-  const [caption, setCaption] = useState(MOCK_CAPTION);
+  const [caption, setCaption] = useState("");
   const [editing, setEditing] = useState(false);
-  const [price, setPrice] = useState(reel.price);
+  const [price, setPrice] = useState("");
   const [shop, setShop] = useState("Apni Dukaan");
   const [isPlaying, setIsPlaying] = useState(true);
+  const [rendering, setRendering] = useState(false);
 
   useEffect(() => {
-    const p = sessionStorage.getItem("dukaanreel-price");
-    const s = sessionStorage.getItem("dukaanreel-shop");
-    if (p) setPrice(`₹${p}`);
-    if (s) setShop(s);
-  }, []);
+    fetch(`/api/reels/${id}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("Reel not found"))))
+      .then(({ reel: data }) => {
+        const captured = sessionStorage.getItem("dukaanreel-capture");
+        const imageUrl = preferCapturedImage(captured, data.imageUrl, id);
+        setReel({ ...data, imageUrl, price: data.price === null ? "" : `₹${data.price.toLocaleString("en-IN")}` });
+        setCaption(data.caption);
+        setPrice(data.price === null ? "" : `₹${data.price.toLocaleString("en-IN")}`);
+        setShop(data.shopName || "Apni Dukaan");
+      })
+      .catch(() => setReel(null));
+  }, [id]);
+
+  const makeVideo = async () => {
+    if (!reel || rendering || reel.videoUrl) return;
+    setRendering(true);
+    try {
+      const blob = await renderReelVideo({ imageUrl: reel.imageUrl, caption, price, shopName: shop, scene });
+      const token = sessionStorage.getItem("dukaanreel-upload-token") || btoa(id);
+      const response = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": blob.type, "x-reel-id": id, "x-upload-token": token }, body: blob });
+      if (!response.ok) throw new Error("Video upload failed");
+      setReel((current) => current ? { ...current, videoUrl: URL.createObjectURL(blob) } : current);
+    } finally {
+      setRendering(false);
+    }
+  };
+
+  useEffect(() => {
+    // Rendering starts after the browser has loaded the product image.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (reel && !reel.videoUrl) void makeVideo();
+    // The render is an external media operation triggered after the record loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reel?.imageUrl, reel?.videoUrl]);
+
+  if (!reel) {
+    return <div className="grid min-h-screen place-items-center bg-white p-6 text-center text-sm font-semibold text-zinc-500">Reel load ho rahi hai…</div>;
+  }
 
   const activeScene = SCENES.find((s) => s.id === scene)!;
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/r/${id}` : `/r/${id}`;
@@ -42,7 +87,8 @@ export default function ReelPreviewPage() {
       </header>
 
       <div className="bg-zinc-900 p-3">
-        <div className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
+          <div className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
+          {reel.videoUrl && <video src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay muted={!isPlaying} loop playsInline />}
           <div className={`absolute inset-0 ${activeScene.bg} transition-colors`} />
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, black 1px, transparent 0)", backgroundSize: "20px 20px" }} />
           <div className="absolute inset-0 flex items-center justify-center p-8">
@@ -58,7 +104,7 @@ export default function ReelPreviewPage() {
             <p className="text-[18px] font-black leading-6 text-white drop-shadow">{caption}</p>
             <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-bold text-white/80">{price} • DM karo <Heart className="h-3.5 w-3.5 fill-white text-white" /></p>
           </div>
-          <button onClick={() => setIsPlaying((v) => !v)} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-xl">
+          <button onClick={() => setIsPlaying((v) => !v)} className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-xl">
             <Play className={`h-5 w-5 fill-zinc-900 text-zinc-900 ml-0.5 ${isPlaying ? "opacity-40" : ""}`} />
           </button>
         </div>
@@ -124,6 +170,9 @@ export default function ReelPreviewPage() {
         <a href={waHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#16a34a] text-[14px] font-semibold text-white active:scale-[0.98] transition">
           <Share2 className="h-4 w-4" /> WhatsApp Pe Bhejo
         </a>
+        <button onClick={makeVideo} disabled={rendering || Boolean(reel.videoUrl)} className="mt-2 flex h-10 w-full items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-900 disabled:opacity-60">
+          {rendering ? "Product reel ban rahi hai…" : reel.videoUrl ? "Video ready hai" : "Product Reel Banao"}
+        </button>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a href={reel.imageUrl} download className="flex h-10 items-center justify-center gap-1.5 rounded-full bg-zinc-900 text-xs font-semibold text-white">
             <Download className="h-3.5 w-3.5" /> Download

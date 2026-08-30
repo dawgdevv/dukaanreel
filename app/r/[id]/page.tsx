@@ -1,16 +1,18 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Share2, ExternalLink, MapPin, Star, Heart } from "lucide-react";
-import { MOCK_REELS, MOCK_CAPTION } from "@/lib/mock";
+import { getReel } from "@/lib/cloudflare";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const reel = MOCK_REELS.find((r) => r.id === id) ?? MOCK_REELS[0];
+  const reel = await getReel(id);
+  if (!reel) notFound();
   return {
-    title: `${MOCK_CAPTION} DukaanReel`,
-    description: `${MOCK_CAPTION} ${reel.price} • WhatsApp pe bhejo`,
+    title: `${reel.caption} DukaanReel`,
+    description: `${reel.caption} • WhatsApp pe bhejo`,
     openGraph: {
-      title: MOCK_CAPTION,
-      description: `Dekho ye reel ${reel.price} only!`,
+      title: reel.caption,
+      description: `Dekho ye reel ${reel.price ? `₹${reel.price}` : "abhi"} only!`,
       images: [{ url: reel.imageUrl, width: 1080, height: 1920 }],
       type: "video.other" as const,
     },
@@ -19,10 +21,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function PublicSharePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const reel = MOCK_REELS.find((r) => r.id === id) ?? MOCK_REELS[0];
-  const caption = MOCK_CAPTION;
-  const shopName = "Apni Dukaan • Local Market";
-  const waText = encodeURIComponent(`${caption} ${reel.price}\nDekho: https://dukaanreel.com/r/${id}`);
+  const reel = await getReel(id);
+  if (!reel) notFound();
+  const caption = reel.caption;
+  const shopName = reel.shopName;
+  const price = reel.price === null ? "" : `₹${reel.price.toLocaleString("en-IN")}`;
+  const waText = encodeURIComponent(`${caption}\nDekho: ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/r/${id}`);
   const waHref = `https://wa.me/?text=${waText}`;
 
   return (
@@ -36,16 +40,17 @@ export default async function PublicSharePage({ params }: { params: Promise<{ id
         <div className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-2xl bg-zinc-900">
           <div className="absolute inset-0 bg-zinc-100" />
           <div className="absolute inset-0 flex items-center justify-center p-6">
+            {reel.videoUrl && <video src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay muted loop playsInline />}
             <div className="relative aspect-square w-full max-w-[280px] overflow-hidden rounded-2xl bg-white shadow-xl">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={reel.imageUrl} alt="product" className="h-full w-full object-cover" />
-              <div className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-black text-white">Apni Dukaan</div>
+              <div className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-black text-white">{shopName}</div>
             </div>
           </div>
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/50 to-transparent p-4 pt-10">
             <p className="text-[18px] font-black leading-6 text-white">{caption}</p>
             <p className="mt-1 flex items-center gap-2 text-sm font-bold text-white/90">
-              <span className="rounded-full bg-[#16a34a] px-2.5 py-0.5 text-white">{reel.price}</span>
+              <span className="rounded-full bg-[#16a34a] px-2.5 py-0.5 text-white">{price}</span>
               <span className="inline-flex items-center gap-1">DM karo <Heart className="h-3.5 w-3.5 fill-white text-white" /></span>
             </p>
           </div>
@@ -57,14 +62,14 @@ export default async function PublicSharePage({ params }: { params: Promise<{ id
 
       <div className="flex-1 bg-white px-4 py-5">
         <h1 className="text-[16px] font-semibold leading-6 text-zinc-900">{caption}</h1>
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
           <MapPin className="h-3.5 w-3.5 text-zinc-400" /> {shopName}
         </p>
 
         <div className="mt-3 flex items-center gap-2 rounded-2xl bg-green-50 p-3 ring-1 ring-green-200">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#16a34a] text-white text-sm font-bold">₹</div>
           <div>
-            <p className="text-sm font-semibold text-zinc-900">{reel.price} only</p>
+            <p className="text-sm font-semibold text-zinc-900">{price} only</p>
           </div>
         </div>
 
