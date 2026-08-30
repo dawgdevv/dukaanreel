@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWhatsAppUrl,
+  isSupportedImageType,
   normalizeCaption,
   processInputSchema,
 } from "@/lib/validation";
@@ -21,6 +22,19 @@ describe("process input", () => {
     expect(
       processInputSchema.safeParse({ sceneId: "neon", price: "799" }).success,
     ).toBe(false);
+  });
+});
+
+describe("photo upload", () => {
+  it("accepts supported product photo formats", () => {
+    expect(isSupportedImageType("image/jpeg")).toBe(true);
+    expect(isSupportedImageType("image/png")).toBe(true);
+    expect(isSupportedImageType("image/webp")).toBe(true);
+  });
+
+  it("rejects unsupported image payloads", () => {
+    expect(isSupportedImageType("image/svg+xml")).toBe(false);
+    expect(isSupportedImageType("text/plain")).toBe(false);
   });
 });
 

@@ -3,6 +3,12 @@ import { z } from "zod";
 export const sceneIds = ["white", "boutique", "street"] as const;
 export type SceneId = (typeof sceneIds)[number];
 
+export const supportedImageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
+
+export function isSupportedImageType(mimeType: string): boolean {
+  return supportedImageTypes.includes(mimeType as (typeof supportedImageTypes)[number]);
+}
+
 export const processInputSchema = z.object({
   price: z
     .union([z.string(), z.number()])

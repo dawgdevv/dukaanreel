@@ -73,14 +73,6 @@ export default function ReelPreviewPage() {
     }
   };
 
-  useEffect(() => {
-    // Rendering starts after the browser has loaded the product image.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (reel && !reel.videoUrl) void makeVideo();
-    // The render is an external media operation triggered after the record loads.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reel?.imageUrl, reel?.videoUrl]);
-
   if (!reel) {
     return <div className="grid min-h-screen place-items-center bg-white p-6 text-center text-sm font-semibold text-zinc-500">Reel load ho rahi hai…</div>;
   }

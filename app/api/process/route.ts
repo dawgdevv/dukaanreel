@@ -1,6 +1,6 @@
-import { createReel, putAsset } from "@/lib/cloudflare";
-import { createStudioProductPhoto, generateCaption, generateVoice, removeBackground } from "@/lib/providers";
-import { processInputSchema } from "@/lib/validation";
+import { createReel, putAsset, putOriginalAsset } from "@/lib/cloudflare";
+import { createStudioProductPhoto, generateCaption, removeBackground } from "@/lib/providers";
+import { isSupportedImageType, processInputSchema } from "@/lib/validation";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const image = form.get("image");
     if (!(image instanceof File)) return Response.json({ error: "Image is required" }, { status: 400 });
-    if (!image.type.startsWith("image/")) return Response.json({ error: "Only image files are supported" }, { status: 400 });
+    if (!isSupportedImageType(image.type)) return Response.json({ error: "Use a JPEG, PNG, or WebP image" }, { status: 400 });
     if (image.size > 8 * 1024 * 1024) return Response.json({ error: "Image is too large" }, { status: 413 });
 
     const parsed = processInputSchema.safeParse({
@@ -20,16 +20,18 @@ export async function POST(request: Request) {
     });
     if (!parsed.success) return Response.json({ error: "Please check price, shop name, and scene" }, { status: 400 });
 
+    const id = crypto.randomUUID();
     const input = new Uint8Array(await image.arrayBuffer());
+    const originalExtension = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
+    const originalUpload = putOriginalAsset(`${id}/original.${originalExtension}`, input, image.type);
     const productCutout = await removeBackground(input, image.type);
     const studioResult = await createStudioProductPhoto(productCutout);
     const product = studioResult.bytes;
-    const caption = await generateCaption(product, parsed.data.price);
+    const productExtension = studioResult.mimeType === "image/jpeg" ? "jpg" : studioResult.mimeType.split("/")[1] ?? "png";
+    const captionPromise = generateCaption(product, parsed.data.price);
+    const finalUpload = putAsset(`${id}/product.${productExtension}`, product, studioResult.mimeType);
+    const [caption, , imageUrl] = await Promise.all([captionPromise, originalUpload, finalUpload]);
     const captionText = caption.hashtags.length ? `${caption.caption} ${caption.hashtags.join(" ")}` : caption.caption;
-    const id = crypto.randomUUID();
-    const imageUrl = await putAsset(`${id}/product.png`, product, "image/png");
-    const voice = await generateVoice(captionText);
-    const audioUrl = voice ? await putAsset(`${id}/voice.mp3`, voice.bytes, voice.mimeType) : null;
     const reel = await createReel({
       id,
       caption: captionText,
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
       shopName: parsed.data.shopName,
       sceneId: parsed.data.sceneId,
       imageUrl,
-      audioUrl,
+      audioUrl: null,
     });
 
     return Response.json({
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
       share: `/r/${id}`,
       capabilities: {
         canRecordVideo: typeof MediaRecorder !== "undefined",
-        canUseTts: Boolean(audioUrl),
+        canUseTts: false,
         studioPhoto: studioResult.studio,
       },
     });

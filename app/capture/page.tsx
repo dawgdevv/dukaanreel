@@ -250,7 +250,7 @@ export default function CapturePage() {
         </div>
 
       <canvas ref={canvasRef} className="hidden" />
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFilePick} />
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFilePick} />
     </div>
   );
 }

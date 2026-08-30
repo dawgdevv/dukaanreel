@@ -2,9 +2,11 @@ import OpenAI from "openai";
 import { fallbackCaption, normalizeCaption, type CaptionResult } from "./validation";
 import { base64ToBytes, bytesToBase64 } from "./cloudflare";
 
-export async function removeBackground(input: Uint8Array, mimeType: string): Promise<Uint8Array> {
+type PhotoAsset = { bytes: Uint8Array; mimeType: string };
+
+export async function removeBackground(input: Uint8Array, mimeType: string): Promise<PhotoAsset> {
   const key = process.env.REMOVE_BG_API_KEY;
-  if (!key || process.env.DEMO_MODE === "true") return input;
+  if (!key || process.env.DEMO_MODE === "true") return { bytes: input, mimeType };
   const form = new FormData();
   const ownedBuffer = new ArrayBuffer(input.byteLength);
   new Uint8Array(ownedBuffer).set(input);
@@ -12,18 +14,19 @@ export async function removeBackground(input: Uint8Array, mimeType: string): Pro
   form.append("size", "auto");
   const response = await fetch("https://api.remove.bg/v1.0/removebg", { method: "POST", headers: { "X-Api-Key": key }, body: form });
   if (!response.ok) throw new Error(`background removal failed: ${response.status}`);
-  return new Uint8Array(await response.arrayBuffer());
+  return { bytes: new Uint8Array(await response.arrayBuffer()), mimeType: "image/png" };
 }
 
-export async function createStudioProductPhoto(input: Uint8Array): Promise<{ bytes: Uint8Array; studio: boolean }> {
+export async function createStudioProductPhoto(input: PhotoAsset): Promise<PhotoAsset & { studio: boolean }> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || process.env.DEMO_MODE === "true") return { bytes: input, studio: false };
+  if (!apiKey || process.env.DEMO_MODE === "true") return { ...input, studio: false };
 
-  const ownedBuffer = new ArrayBuffer(input.byteLength);
-  new Uint8Array(ownedBuffer).set(input);
+  const ownedBuffer = new ArrayBuffer(input.bytes.byteLength);
+  new Uint8Array(ownedBuffer).set(input.bytes);
   const form = new FormData();
   form.append("model", process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2");
-  form.append("image[]", new Blob([ownedBuffer], { type: "image/png" }), "product.png");
+  const inputExtension = input.mimeType === "image/jpeg" ? "jpg" : input.mimeType.split("/")[1] ?? "png";
+  form.append("image[]", new Blob([ownedBuffer], { type: input.mimeType }), `product.${inputExtension}`);
   form.append(
     "prompt",
     [
@@ -53,10 +56,10 @@ export async function createStudioProductPhoto(input: Uint8Array): Promise<{ byt
     const result = await response.json() as { data?: Array<{ b64_json?: string }> };
     const imageBase64 = result.data?.[0]?.b64_json;
     if (!imageBase64) throw new Error("studio image generation returned no image");
-    return { bytes: base64ToBytes(imageBase64), studio: true };
+    return { bytes: base64ToBytes(imageBase64), mimeType: "image/png", studio: true };
   } catch (error) {
     console.error("studio image fallback", error instanceof Error ? error.message : "unknown error");
-    return { bytes: input, studio: false };
+    return { ...input, studio: false };
   }
 }
 

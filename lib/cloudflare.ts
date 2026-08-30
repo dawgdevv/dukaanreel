@@ -109,9 +109,22 @@ export async function putAsset(key: string, value: Uint8Array, contentType: stri
   const baseUrl = (env.ASSET_BASE_URL ?? env.NEXT_PUBLIC_R2_PUBLIC_URL)?.replace(/\/$/, "");
   if (env.R2) {
     await env.R2.put(key, value, { httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" } });
-    if (baseUrl) return `${baseUrl}/${key}`;
+    if (!baseUrl) throw new Error("R2 public URL is not configured");
+    return `${baseUrl}/${key}`;
   }
+  if (env.DEMO_MODE !== "true") throw new Error("R2 binding is not configured");
   return `data:${contentType};base64,${bytesToBase64(value)}`;
+}
+
+export async function putOriginalAsset(key: string, value: Uint8Array, contentType: string): Promise<void> {
+  const env = await bindings();
+  if (env.R2) {
+    await env.R2.put(key, value, {
+      httpMetadata: { contentType, cacheControl: "private, max-age=0, no-store" },
+    });
+    return;
+  }
+  if (env.DEMO_MODE !== "true") throw new Error("R2 binding is not configured");
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {
