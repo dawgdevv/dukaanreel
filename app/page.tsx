@@ -141,6 +141,13 @@ export default function Home() {
             <p className="mt-1 text-xs text-white/70">{experiments[4].note}</p>
           </div>
         </article>
+        <Link
+          href="/creations"
+          className="mx-auto mt-10 flex h-12 w-fit items-center gap-2 rounded-full border border-black bg-[#f8e834] px-6 text-sm font-black shadow-[3px_4px_0_#171711] transition active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+        >
+          Show more
+          <ArrowUpRight className="h-4 w-4" strokeWidth={2.5} />
+        </Link>
       </section>
 
       <section className="px-5 pb-6 pt-8 text-center">

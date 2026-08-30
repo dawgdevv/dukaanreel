@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -13,8 +13,23 @@ describe("simplified clothing maker interface", () => {
     expect(source).not.toContain("polished product image");
     expect(source).not.toContain("AI studio");
     expect(source).not.toContain("Photo Kheecho");
-    expect(source).not.toContain("Recent");
-    expect(source).not.toContain("listReels");
+  });
+
+  it("keeps the homepage curated and moves R2 generations behind Show more", () => {
+    const home = read("app/page.tsx");
+
+    expect(home).not.toContain("listReels");
+    expect(home).not.toContain("reel.imageUrl");
+    expect(home).toContain('href="/creations"');
+    expect(home).toContain("Show more");
+
+    const creationsPath = new URL("../app/creations/page.tsx", import.meta.url);
+    expect(existsSync(creationsPath)).toBe(true);
+    const creations = read("app/creations/page.tsx");
+    expect(creations).toContain('import { listReels } from "@/lib/cloudflare"');
+    expect(creations).toContain("await listReels()");
+    expect(creations).toContain("reel.imageUrl");
+    expect(creations).toContain("href={`/r/${reel.id}`}");
   });
 
   it("showcases the five supplied experiments in an accessible gallery", () => {

@@ -112,7 +112,7 @@ export async function getReel(id: string): Promise<Reel | null> {
   return readReelKey(reelKey(id));
 }
 
-export async function listReels(limit = 9): Promise<Reel[]> {
+export async function listReels(limit = 100): Promise<Reel[]> {
   const config = r2();
   const response = await config.client.send(new ListObjectsV2Command({
     Bucket: config.bucket,
