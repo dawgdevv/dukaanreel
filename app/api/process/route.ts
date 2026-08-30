@@ -2,7 +2,7 @@ import { createReel, putAsset, putOriginalAsset } from "@/lib/cloudflare";
 import { createStudioProductPhoto, generateCaption, removeBackground } from "@/lib/providers";
 import { isSupportedImageType, processInputSchema } from "@/lib/validation";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {

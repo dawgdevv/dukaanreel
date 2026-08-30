@@ -1,6 +1,6 @@
 import { putAsset, updateReelVideo } from "@/lib/cloudflare";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {

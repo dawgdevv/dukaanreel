@@ -7,14 +7,19 @@ type PhotoAsset = { bytes: Uint8Array; mimeType: string };
 export async function removeBackground(input: Uint8Array, mimeType: string): Promise<PhotoAsset> {
   const key = process.env.REMOVE_BG_API_KEY;
   if (!key || process.env.DEMO_MODE === "true") return { bytes: input, mimeType };
-  const form = new FormData();
-  const ownedBuffer = new ArrayBuffer(input.byteLength);
-  new Uint8Array(ownedBuffer).set(input);
-  form.append("image_file", new Blob([ownedBuffer], { type: mimeType }), "product.jpg");
-  form.append("size", "auto");
-  const response = await fetch("https://api.remove.bg/v1.0/removebg", { method: "POST", headers: { "X-Api-Key": key }, body: form });
-  if (!response.ok) throw new Error(`background removal failed: ${response.status}`);
-  return { bytes: new Uint8Array(await response.arrayBuffer()), mimeType: "image/png" };
+  try {
+    const form = new FormData();
+    const ownedBuffer = new ArrayBuffer(input.byteLength);
+    new Uint8Array(ownedBuffer).set(input);
+    form.append("image_file", new Blob([ownedBuffer], { type: mimeType }), "product.jpg");
+    form.append("size", "auto");
+    const response = await fetch("https://api.remove.bg/v1.0/removebg", { method: "POST", headers: { "X-Api-Key": key }, body: form });
+    if (!response.ok) throw new Error(`background removal failed: ${response.status}`);
+    return { bytes: new Uint8Array(await response.arrayBuffer()), mimeType: "image/png" };
+  } catch (error) {
+    console.error("background removal fallback", error instanceof Error ? error.message : "unknown error");
+    return { bytes: input, mimeType };
+  }
 }
 
 export async function createStudioProductPhoto(input: PhotoAsset): Promise<PhotoAsset & { studio: boolean }> {
@@ -65,19 +70,23 @@ export async function createStudioProductPhoto(input: PhotoAsset): Promise<Photo
 
 export async function generateCaption(image: Uint8Array, price: number | null): Promise<CaptionResult> {
   if (!process.env.OPENAI_API_KEY || process.env.DEMO_MODE === "true") return fallbackCaption(price);
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await client.responses.create({
-    model: process.env.OPENAI_VISION_MODEL ?? "gpt-4o-mini",
-    input: [{ role: "user", content: [
-      { type: "input_text", text: "Identify this product for a Delhi clothing shop. Return JSON with productName, caption, hashtags. Use short Hinglish, include a clear CTA, never invent brand/fabric/discount/stock, and use the supplied price exactly." },
-      { type: "input_text", text: `Supplied price: ${price === null ? "not provided" : `₹${price}`}` },
-      { type: "input_image", image_url: `data:image/png;base64,${bytesToBase64(image)}`, detail: "auto" },
-    ] }],
-  });
   try {
-    const parsed = JSON.parse(response.output_text) as CaptionResult;
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await client.responses.create({
+      model: process.env.OPENAI_VISION_MODEL ?? "gpt-4o-mini",
+      input: [{ role: "user", content: [
+        { type: "input_text", text: "Identify this product for a Delhi clothing shop. Return JSON with productName, caption, hashtags. Use short Hinglish, include a clear CTA, never invent brand/fabric/discount/stock, and use the supplied price exactly." },
+        { type: "input_text", text: `Supplied price: ${price === null ? "not provided" : `₹${price}`}` },
+        { type: "input_image", image_url: `data:image/png;base64,${bytesToBase64(image)}`, detail: "auto" },
+      ] }],
+    });
+    const json = response.output_text.trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "");
+    const parsed = JSON.parse(json) as CaptionResult;
     return normalizeCaption(parsed, price);
-  } catch {
+  } catch (error) {
+    console.error("caption fallback", error instanceof Error ? error.message : "unknown error");
     return fallbackCaption(price);
   }
 }
