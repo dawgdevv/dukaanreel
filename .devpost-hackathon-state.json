@@ -1,8 +1,9 @@
 {
   "learning": {
-    "current_step": "spec",
-    "completed_steps": ["prd"],
-    "next_command": "build-checklist"
+    "current_step": "checklist",
+    "completed_steps": ["prd", "spec", "checklist"],
+    "next_command": "build-project",
+    "checklist_file": ".e2e-build/plan.md"
   },
   "project": {
     "name": "DukaanReel",

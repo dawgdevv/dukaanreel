@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { Camera, Play } from "lucide-react";
-import { MOCK_REELS } from "@/lib/mock";
+import { listReels } from "@/lib/cloudflare";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const reels = await listReels();
   return (
     <div className="flex flex-1 flex-col bg-white">
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-100 bg-white px-4">
@@ -35,11 +38,11 @@ export default function Home() {
       <section className="flex-1 bg-zinc-50 px-4 py-5 pb-24">
         <div className="flex items-center justify-between">
           <h2 className="text-[16px] font-bold text-zinc-900">Recent</h2>
-          <span className="text-xs font-semibold text-zinc-400">{MOCK_REELS.length}</span>
+          <span className="text-xs font-semibold text-zinc-400">{reels.length}</span>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-3">
-          {MOCK_REELS.map((r) => (
+          {reels.map((r) => (
             <Link
               key={r.id}
               href={`/reel/${r.id}`}
@@ -55,7 +58,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="absolute bottom-1.5 left-1.5 rounded-full bg-[#16a34a] px-2 py-0.5 text-[11px] font-black text-white">
-                  {r.price}
+                  {r.price === null ? "" : `₹${r.price.toLocaleString("en-IN")}`}
                 </div>
               </div>
               <div className="px-2 py-1.5">

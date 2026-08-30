@@ -15,3 +15,9 @@
 - Choose the final TTS provider based on available hackathon credentials and Hindi/Hinglish voice quality.
 - Confirm whether the existing R2 setup exposes assets through a custom domain or requires a Worker asset route; configure CORS for canvas rendering.
 - Keep the agentic WhatsApp auto-reply as stretch scope only after the full capture-to-share path is rehearsed.
+
+## E2E build handoff — 2026-08-30
+
+- User approved autonomous execution of the full implementation plan through `$e2e-build`.
+- Execution plan saved locally at `.e2e-build/plan.md`; the directory is excluded from git.
+- Required build mode: implement the anonymous Cloudflare vertical slice, verify locally, review, and prepare a merge-ready PR without merging.
