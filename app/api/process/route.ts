@@ -71,6 +71,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("process failed", error instanceof Error ? error.message : "unknown error");
-    return Response.json({ error: "Reel nahi ban paayi. Dobara try karo." }, { status: 502 });
+    return Response.json({ error: "We could not create the image. Please try again." }, { status: 502 });
   }
 }

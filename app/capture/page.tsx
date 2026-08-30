@@ -6,6 +6,22 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Image as ImageIcon, Zap, FlipHorizontal } from "lucide-react";
 import { requestCameraStream } from "@/lib/media/camera";
 
+type ClothingChoice = "tshirt" | "shirt" | "saree" | "top";
+
+const clothingChoices: Array<{ label: string; value: ClothingChoice }> = [
+  { label: "T-shirt", value: "tshirt" },
+  { label: "Shirt", value: "shirt" },
+  { label: "Saree", value: "saree" },
+  { label: "Top", value: "top" },
+];
+
+const generationCategory = {
+  tshirt: "shirt",
+  shirt: "shirt",
+  saree: "saree",
+  top: "kurti",
+} as const;
+
 export default function CapturePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -17,9 +33,7 @@ export default function CapturePage() {
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string>("");
   const [facing, setFacing] = useState<"environment" | "user">("environment");
-  const [price, setPrice] = useState("799");
-  const [shopName, setShopName] = useState("");
-  const [garmentCategory, setGarmentCategory] = useState<"shirt" | "kurti" | "dress" | "saree">("shirt");
+  const [garmentCategory, setGarmentCategory] = useState<ClothingChoice>("tshirt");
   const [captured, setCaptured] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -38,7 +52,7 @@ export default function CapturePage() {
         await videoRef.current.play().catch(() => {});
       }
     } catch {
-      setError("Camera nahi khula. Browser settings se camera allow karo, ya Gallery se photo pick karo.");
+      setError("We could not open the camera. Allow camera access in your browser, or choose a photo from your gallery.");
     } finally {
       setStarting(false);
     }
@@ -80,8 +94,6 @@ export default function CapturePage() {
     const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
     setCaptured(dataUrl);
     sessionStorage.setItem("dukaanreel-capture", dataUrl);
-    sessionStorage.setItem("dukaanreel-price", price);
-    sessionStorage.setItem("dukaanreel-shop", shopName);
   };
 
   const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,8 +117,6 @@ export default function CapturePage() {
       const dataUrl = c.toDataURL("image/jpeg", 0.9);
       setCaptured(dataUrl);
       sessionStorage.setItem("dukaanreel-capture", dataUrl);
-      sessionStorage.setItem("dukaanreel-price", price);
-      sessionStorage.setItem("dukaanreel-shop", shopName);
       URL.revokeObjectURL(url);
     };
     img.src = url;
@@ -120,10 +130,10 @@ export default function CapturePage() {
       const image = await fetch(captured).then((response) => response.blob());
       const form = new FormData();
       form.append("image", image, "product.jpg");
-      form.append("price", price);
-      form.append("shopName", shopName || "Apni Dukaan");
+      form.append("price", "");
+      form.append("shopName", "8x.dresses");
       form.append("sceneId", "white");
-      form.append("garmentCategory", garmentCategory);
+      form.append("garmentCategory", generationCategory[garmentCategory]);
       const response = await fetch("/api/process", { method: "POST", body: form });
       const payload = await response.json() as { reel?: { id: string; imageUrl: string }; error?: string };
       if (!response.ok || !payload.reel) throw new Error(payload.error || "Processing failed");
@@ -137,63 +147,42 @@ export default function CapturePage() {
       sessionStorage.setItem("dukaanreel-last-id", payload.reel.id);
       router.push(`/reel/${payload.reel.id}`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Reel nahi ban paayi. Dobara try karo.");
+      setError(cause instanceof Error ? cause.message : "We could not create the image. Please try again.");
       setProcessing(false);
     }
   };
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-black">
-      {/* Header overlay — keeps camera full bleed like native phone app */}
-      <header className="absolute top-0 inset-x-0 z-20 flex h-14 items-center justify-between px-3 text-white bg-gradient-to-b from-black/70 to-transparent pt-[env(safe-area-inset-top)]">
-        <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur">
+      <header className="absolute inset-x-0 top-0 z-20 flex h-14 items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-3 pt-[env(safe-area-inset-top)] text-white">
+        <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <span className="text-[14px] font-semibold tracking-tight drop-shadow">DukaanReel</span>
+        <span className="text-[14px] font-semibold tracking-tight drop-shadow">8x.dresses</span>
         <button
           onClick={() => {
             const next = facing === "environment" ? "user" : "environment";
             setFacing(next);
             if (stream) void startCamera(next);
           }}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur"
           aria-label="Flip camera"
         >
           <FlipHorizontal className="h-5 w-5" />
         </button>
       </header>
 
-      {/* Inputs overlay — floating near top, below header like Snapchat */}
-      <div className="absolute top-14 inset-x-0 z-20 px-3 pt-2">
-        <div className="mx-auto flex max-w-md gap-2">
-          <div className="flex flex-1 items-center gap-1.5 rounded-full bg-black/30 px-3 py-2 backdrop-blur ring-1 ring-white/20">
-            <span className="text-xs font-bold text-white">₹</span>
-            <input
-              inputMode="numeric"
-              value={price}
-              onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))}
-              placeholder="799"
-              className="w-full bg-transparent text-[13px] font-semibold text-white outline-none placeholder:text-white/50"
-            />
-          </div>
-          <input
-            value={shopName}
-            onChange={(e) => setShopName(e.target.value)}
-            placeholder="Dukaan naam"
-            className="flex-1 rounded-full bg-black/30 px-3 py-2 text-[12px] font-medium text-white outline-none ring-1 ring-white/20 placeholder:text-white/60 backdrop-blur"
-          />
+      <div className="absolute inset-x-0 top-16 z-20 px-3">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-full bg-black/60 p-1 backdrop-blur" aria-label="Clothing type">
+          {clothingChoices.map(({ label, value }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setGarmentCategory(value)}
+              className={`rounded-full px-2 py-2 text-xs font-medium transition ${garmentCategory === value ? "bg-white text-black" : "text-white"}`}
+            >{label}</button>
+          ))}
         </div>
-        <select
-          value={garmentCategory}
-          onChange={(e) => setGarmentCategory(e.target.value as typeof garmentCategory)}
-          className="mt-2 w-full rounded-full bg-black/30 px-3 py-2 text-[12px] font-semibold text-white outline-none ring-1 ring-white/20 backdrop-blur"
-          aria-label="Garment type"
-        >
-          <option value="shirt" className="text-zinc-900">Men&apos;s shirt / T-shirt</option>
-          <option value="kurti" className="text-zinc-900">Women&apos;s kurti</option>
-          <option value="dress" className="text-zinc-900">Women&apos;s dress</option>
-          <option value="saree" className="text-zinc-900">Saree</option>
-        </select>
       </div>
 
       {/* Full phone view — 9:16 camera fills screen like native camera app */}
@@ -219,12 +208,12 @@ export default function CapturePage() {
         {!captured && !stream && !error && (
           <div className="absolute inset-0 z-10 grid place-items-center p-8 text-center">
             <div>
-              <p className="text-white/70 font-semibold">Photo lene ke liye camera access chahiye</p>
-              <button onClick={() => void startCamera(facing)} disabled={starting} className="mt-4 rounded-full bg-[#16a34a] px-6 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60">
-                {starting ? "Camera khul raha hai…" : "Camera kholo"}
+              <p className="font-medium text-white/70">Allow camera access to photograph your clothing.</p>
+              <button onClick={() => void startCamera(facing)} disabled={starting} className="mt-4 rounded-full bg-white px-6 py-3 text-sm font-semibold text-black disabled:opacity-60">
+                {starting ? "Opening camera…" : "Open camera"}
               </button>
-              <button onClick={() => cameraFileRef.current?.click()} className="mt-2 block w-full text-xs font-bold text-white/70 underline underline-offset-4">
-                Phone camera se photo lo
+              <button onClick={() => cameraFileRef.current?.click()} className="mt-3 block w-full text-xs font-medium text-white/70 underline underline-offset-4">
+                Use phone camera
               </button>
             </div>
           </div>
@@ -232,17 +221,14 @@ export default function CapturePage() {
 
         {error && !captured && (
           <div className="absolute inset-0 z-10 grid place-items-center p-6">
-            <div className="rounded-2xl bg-white p-5 text-center">
-              <p className="text-sm font-bold text-zinc-900">{error}</p>
+            <div className="rounded-3xl bg-white p-5 text-center">
+              <p className="text-sm font-medium text-black">{error}</p>
               <div className="mt-3 flex justify-center gap-2">
-                <button onClick={() => void startCamera(facing)} disabled={starting} className="rounded-xl bg-[#16a34a] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
-                  {starting ? "Camera khul raha hai…" : "Dobara try karo"}
+                <button onClick={() => void startCamera(facing)} disabled={starting} className="rounded-full bg-black px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
+                  {starting ? "Opening…" : "Try again"}
                 </button>
-                <button onClick={() => fileRef.current?.click()} className="rounded-xl bg-zinc-100 px-5 py-3 text-sm font-black text-zinc-900">
+                <button onClick={() => fileRef.current?.click()} className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-black ring-1 ring-black/15">
                   Gallery
-                </button>
-                <button onClick={() => cameraFileRef.current?.click()} className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-black text-white">
-                  Phone camera
                 </button>
               </div>
             </div>
@@ -262,8 +248,8 @@ export default function CapturePage() {
                   <span className="block h-full w-full rounded-full bg-white" />
                 </button>
               ) : (
-                <button onClick={goNext} disabled={processing} className="inline-flex h-11 items-center gap-1.5 rounded-full bg-[#16a34a] px-6 text-[14px] font-semibold text-white shadow-lg active:scale-95 transition disabled:opacity-60">
-                  <Zap className="h-4 w-4" /> {processing ? "Ban raha hai…" : "Reel Banao"}
+                <button onClick={goNext} disabled={processing} className="inline-flex h-12 items-center gap-1.5 rounded-full bg-white px-6 text-sm font-semibold text-black active:scale-95 transition disabled:opacity-60">
+                  <Zap className="h-4 w-4" /> {processing ? "Creating…" : "Create look"}
                 </button>
               )}
             </div>
@@ -273,11 +259,6 @@ export default function CapturePage() {
             </button>
           </div>
 
-          {captured && (
-            <button onClick={goNext} disabled={processing} className="mt-2 flex h-9 w-full max-w-md items-center justify-center rounded-full bg-white mx-6 text-[13px] font-semibold text-zinc-900 disabled:opacity-60">
-              {processing ? "Reel ban rahi hai…" : "Preview dekho"}
-            </button>
-          )}
         </div>
 
       <canvas ref={canvasRef} className="hidden" />
