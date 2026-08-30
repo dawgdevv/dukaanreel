@@ -1,0 +1,15 @@
+{
+  "learning": {
+    "current_step": "spec",
+    "completed_steps": ["prd"],
+    "next_command": "build-checklist"
+  },
+  "project": {
+    "name": "DukaanReel",
+    "documents": {
+      "source": "dukaanreel.md",
+      "spec": "docs/hackathon-build/spec.md",
+      "notes": "docs/hackathon-build/build-notes.md"
+    }
+  }
+}
