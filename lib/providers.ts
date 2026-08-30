@@ -1,8 +1,61 @@
 import OpenAI from "openai";
 import { fallbackCaption, normalizeCaption, type CaptionResult } from "./validation";
 import { base64ToBytes, bytesToBase64 } from "./cloudflare";
+import { getModelTemplate, type GarmentCategory } from "./model-templates";
 
 type PhotoAsset = { bytes: Uint8Array; mimeType: string };
+
+export async function createTryOnPhoto(
+  garment: PhotoAsset,
+  category: GarmentCategory,
+): Promise<PhotoAsset & { tryOn: boolean; templateId: string | null }> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const template = getModelTemplate(category);
+  if (!apiKey || process.env.DEMO_MODE === "true") {
+    return { ...garment, tryOn: false, templateId: null };
+  }
+
+  try {
+    const modelResponse = await fetch(template.imageUrl);
+    if (!modelResponse.ok) throw new Error(`model template failed: ${modelResponse.status}`);
+    const modelBytes = new Uint8Array(await modelResponse.arrayBuffer());
+    const modelMimeType = modelResponse.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+    const form = new FormData();
+    const modelBuffer = new ArrayBuffer(modelBytes.byteLength);
+    new Uint8Array(modelBuffer).set(modelBytes);
+    const garmentBuffer = new ArrayBuffer(garment.bytes.byteLength);
+    new Uint8Array(garmentBuffer).set(garment.bytes);
+    form.append("model", process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2");
+    form.append("image[]", new Blob([modelBuffer], { type: modelMimeType }), "model.jpg");
+    form.append("image[]", new Blob([garmentBuffer], { type: garment.mimeType }), "garment.png");
+    form.append(
+      "prompt",
+      [
+        "Create a realistic ecommerce fashion photo using the first image as the exact person and the second image as the exact garment.",
+        `The garment category is ${category}. Put the garment naturally on the person while preserving its exact color, print, embroidery, logo, text, fabric texture, cut, and proportions.`,
+        category === "saree" ? "Dress the female model in the complete saree look with accurate blouse, pleats, waist drape, and pallu; do not omit the saree." : "Keep the person’s face, hair, skin tone, body proportions, pose, and neutral expression unchanged.",
+        "Use a clean warm-white studio background, soft commercial lighting, full garment visibility, and no extra clothing, props, text, or watermark.",
+      ].join(" "),
+    );
+    form.append("size", "1024x1536");
+    form.append("quality", "high");
+    form.append("output_format", "png");
+
+    const response = await fetch("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+    if (!response.ok) throw new Error(`try-on image generation failed: ${response.status}`);
+    const result = await response.json() as { data?: Array<{ b64_json?: string }> };
+    const imageBase64 = result.data?.[0]?.b64_json;
+    if (!imageBase64) throw new Error("try-on image generation returned no image");
+    return { bytes: base64ToBytes(imageBase64), mimeType: "image/png", tryOn: true, templateId: template.id };
+  } catch (error) {
+    console.error("try-on fallback", error instanceof Error ? error.message : "unknown error");
+    return { ...garment, tryOn: false, templateId: null };
+  }
+}
 
 export async function removeBackground(input: Uint8Array, mimeType: string): Promise<PhotoAsset> {
   const key = process.env.REMOVE_BG_API_KEY;

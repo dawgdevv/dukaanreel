@@ -1,71 +1,111 @@
-export async function renderReelVideo(options: {
+"use client";
+
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { buildFfmpegReelArgs } from "./ffmpeg-command";
+
+type RenderOptions = {
   imageUrl: string;
   caption: string;
   price: string;
   shopName: string;
   scene: string;
-}): Promise<Blob> {
-  const image = new Image();
-  image.crossOrigin = "anonymous";
-  image.src = options.imageUrl;
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Product image could not be loaded"));
-  });
+  audioUrl?: string | null;
+};
 
+let ffmpegPromise: Promise<FFmpeg> | null = null;
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Dressed model image could not be loaded"));
+    image.src = url;
+  });
+}
+
+async function getFfmpeg(): Promise<FFmpeg> {
+  ffmpegPromise ??= (async () => {
+    const instance = new FFmpeg();
+    await instance.load({
+      coreURL: "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js",
+      wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.wasm",
+    });
+    return instance;
+  })();
+  return ffmpegPromise;
+}
+
+function drawWrappedText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): void {
+  const words = text.split(" ");
+  let line = "";
+  for (const word of words) {
+    const next = `${line} ${word}`.trim();
+    if (context.measureText(next).width > maxWidth && line) {
+      context.fillText(line, x, y);
+      line = word;
+      y += lineHeight;
+    } else line = next;
+  }
+  if (line) context.fillText(line, x, y);
+}
+
+async function composeFrame(options: RenderOptions, image: HTMLImageElement): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1920;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas unavailable");
-  const stream = canvas.captureStream(30);
-  const mimeType = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
-    .find((type) => MediaRecorder.isTypeSupported(type));
-  if (!mimeType) throw new Error("Video recording unavailable");
 
-  const chunks: Blob[] = [];
-  const recorder = new MediaRecorder(stream, { mimeType });
-  recorder.ondataavailable = (event) => event.data.size && chunks.push(event.data);
-  const done = new Promise<Blob>((resolve) => {
-    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+  const background = options.scene === "boutique" ? "#fff7ed" : options.scene === "street" ? "#f5f5f4" : "#f4f4f5";
+  context.fillStyle = background;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "rgba(255,255,255,0.62)";
+  context.fillRect(42, 42, 996, 1836);
+
+  const scale = Math.min(900 / image.width, 1200 / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
+  context.drawImage(image, (1080 - width) / 2, 190 + (1200 - height) / 2, width, height);
+
+  context.fillStyle = "#18181b";
+  context.font = "900 48px Arial";
+  context.fillText(options.shopName || "Apni Dukaan", 82, 120);
+  context.fillStyle = "#16a34a";
+  context.font = "900 42px Arial";
+  context.fillText(options.price || "Fresh arrival", 82, 178);
+  context.fillStyle = "#18181b";
+  context.font = "900 50px Arial";
+  drawWrappedText(context, options.caption, 82, 1510, 916, 64);
+  context.fillStyle = "#16a34a";
+  context.font = "700 32px Arial";
+  context.fillText("DM karke order karo", 82, 1770);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not compose reel frame")), "image/png");
   });
-  recorder.start(250);
-  const started = performance.now();
-  const draw = () => {
-    const elapsed = performance.now() - started;
-    const progress = Math.min(elapsed / 5000, 1);
-    const gradient = context.createLinearGradient(0, 0, 1080, 1920);
-    gradient.addColorStop(0, options.scene === "boutique" ? "#fff7ed" : options.scene === "street" ? "#f5f5f4" : "#f4f4f5");
-    gradient.addColorStop(1, "#ffffff");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 1080, 1920);
-    const scale = 0.96 + Math.sin(progress * Math.PI) * 0.04;
-    const width = 1080 * scale;
-    const height = 1920 * scale;
-    context.drawImage(image, (1080 - width) / 2, (1920 - height) / 2, width, height);
-    context.fillStyle = "#18181b";
-    context.font = "900 54px Arial";
-    context.fillText(options.shopName || "Apni Dukaan", 64, 150);
-    context.fillStyle = "#16a34a";
-    context.font = "900 44px Arial";
-    context.fillText(options.price || "Fresh arrival", 64, 230);
-    context.fillStyle = "#18181b";
-    context.font = "900 52px Arial";
-    const words = options.caption.split(" ");
-    let line = "";
-    let lineY = 1350;
-    for (const word of words) {
-      const next = `${line} ${word}`.trim();
-      if (context.measureText(next).width > 950) {
-        context.fillText(line, 64, lineY);
-        line = word;
-        lineY += 68;
-      } else line = next;
+}
+
+export async function renderReelVideo(options: RenderOptions): Promise<Blob> {
+  const image = await loadImage(options.imageUrl);
+  const frame = await composeFrame(options, image);
+  const ffmpeg = await getFfmpeg();
+  await ffmpeg.writeFile("frame.png", new Uint8Array(await frame.arrayBuffer()));
+
+  let hasAudio = false;
+  if (options.audioUrl) {
+    const response = await fetch(options.audioUrl);
+    if (response.ok) {
+      await ffmpeg.writeFile("audio.mp3", new Uint8Array(await response.arrayBuffer()));
+      hasAudio = true;
     }
-    if (line) context.fillText(line, 64, lineY);
-    if (progress < 1) requestAnimationFrame(draw);
-    else setTimeout(() => recorder.stop(), 100);
-  };
-  requestAnimationFrame(draw);
-  return done;
+  }
+
+  await ffmpeg.exec(buildFfmpegReelArgs(hasAudio));
+  const output = await ffmpeg.readFile("reel.mp4");
+  if (typeof output === "string") throw new Error("FFmpeg returned text instead of a video");
+  const outputBytes = new Uint8Array(output);
+  const ownedBuffer = new ArrayBuffer(outputBytes.byteLength);
+  new Uint8Array(ownedBuffer).set(outputBytes);
+  return new Blob([ownedBuffer], { type: "video/mp4" });
 }

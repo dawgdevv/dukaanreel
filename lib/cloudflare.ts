@@ -8,13 +8,13 @@ import {
 } from "@aws-sdk/client-s3";
 import type { CreateReelInput, Reel } from "./types";
 import { MOCK_IMAGE } from "./mock";
+import { assetPath, normalizeAssetUrl } from "./cloudflare-url";
 
 const REEL_PREFIX = "_reels/";
 let client: S3Client | undefined;
 
 type R2Config = {
   bucket: string;
-  publicUrl: string;
   client: S3Client;
 };
 
@@ -29,7 +29,6 @@ function r2(): R2Config {
   const accessKeyId = requiredEnv("R2_ACCESS_KEY_ID");
   const secretAccessKey = requiredEnv("R2_SECRET_ACCESS_KEY");
   const bucket = requiredEnv("R2_BUCKET_NAME");
-  const publicUrl = requiredEnv("NEXT_PUBLIC_R2_PUBLIC_URL").replace(/\/$/, "");
 
   client ??= new S3Client({
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -37,16 +36,15 @@ function r2(): R2Config {
     credentials: { accessKeyId, secretAccessKey },
   });
 
-  return { bucket, publicUrl, client };
+  return { bucket, client };
 }
 
 function reelKey(id: string): string {
   return `${REEL_PREFIX}${id}.json`;
 }
 
-function publicAssetUrl(baseUrl: string, key: string): string {
-  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-  return `${baseUrl}/${encodedKey}`;
+function publicAssetUrl(key: string): string {
+  return assetPath(key);
 }
 
 function isNotFound(error: unknown): boolean {
@@ -74,7 +72,9 @@ async function readReelKey(key: string): Promise<Reel | null> {
       Key: key,
     }));
     if (!response.Body) return null;
-    return JSON.parse(await response.Body.transformToString()) as Reel;
+    const reel = JSON.parse(await response.Body.transformToString()) as Reel;
+    const legacyBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.trim() || "";
+    return { ...reel, imageUrl: normalizeAssetUrl(reel.imageUrl, legacyBaseUrl), audioUrl: reel.audioUrl ? normalizeAssetUrl(reel.audioUrl, legacyBaseUrl) : null, videoUrl: reel.videoUrl ? normalizeAssetUrl(reel.videoUrl, legacyBaseUrl) : null };
   } catch (error) {
     if (isNotFound(error)) return null;
     throw error;
@@ -143,7 +143,7 @@ export async function putAsset(key: string, value: Uint8Array, contentType: stri
     ContentType: contentType,
     CacheControl: "public, max-age=31536000, immutable",
   }));
-  return publicAssetUrl(config.publicUrl, key);
+  return publicAssetUrl(key);
 }
 
 export async function putOriginalAsset(key: string, value: Uint8Array, contentType: string): Promise<void> {
@@ -155,6 +155,21 @@ export async function putOriginalAsset(key: string, value: Uint8Array, contentTy
     ContentType: contentType,
     CacheControl: "private, max-age=0, no-store",
   }));
+}
+
+export async function getAsset(key: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  const config = r2();
+  try {
+    const response = await config.client.send(new GetObjectCommand({ Bucket: config.bucket, Key: key }));
+    if (!response.Body) return null;
+    return {
+      bytes: await response.Body.transformToByteArray(),
+      contentType: response.ContentType || "application/octet-stream",
+    };
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {

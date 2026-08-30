@@ -14,6 +14,8 @@ export type Reel = {
   videoUrl: string | null;
   status: ReelStatus;
   createdAt: string;
+  garmentCategory?: "shirt" | "kurti" | "dress" | "saree";
+  modelTemplateId?: string | null;
 };
 
 export type CreateReelInput = Omit<Reel, "createdAt" | "videoUrl" | "status"> & {

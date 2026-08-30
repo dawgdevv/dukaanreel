@@ -16,6 +16,20 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Model try-on and FFmpeg reels
+
+For real model try-on output, configure `OPENAI_API_KEY` and leave `DEMO_MODE` unset or set it to `false`. The app selects a fixed model template from `lib/model-templates.ts`, sends the garment and template image to the server-side try-on step, and then uses FFmpeg.wasm in the browser to turn the dressed still image into a five-second MP4 with a slow zoom.
+
+Optional template overrides:
+
+```text
+MODEL_TEMPLATE_MALE_URL=https://your-public-assets.example/male-shirt.jpg
+MODEL_TEMPLATE_FEMALE_URL=https://your-public-assets.example/female-ethnic.jpg
+MODEL_TEMPLATE_FEMALE_DRESS_URL=https://your-public-assets.example/female-dress.jpg
+```
+
+Use owned or properly licensed model images. The default remote templates are development fallbacks; replace them before production.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
