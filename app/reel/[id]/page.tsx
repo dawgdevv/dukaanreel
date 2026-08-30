@@ -63,11 +63,13 @@ export default function ReelPreviewPage() {
     if (!reel || rendering || reel.videoUrl) return;
     setRendering(true);
     try {
-      const blob = await renderReelVideo({ imageUrl: reel.imageUrl, caption, price, shopName: shop, scene });
+      const blob = await renderReelVideo({ imageUrl: reel.imageUrl, caption, price, shopName: shop, scene, audioUrl: reel.audioUrl });
       const token = sessionStorage.getItem("dukaanreel-upload-token") || btoa(id);
       const response = await fetch("/api/upload", { method: "POST", headers: { "Content-Type": blob.type, "x-reel-id": id, "x-upload-token": token }, body: blob });
       if (!response.ok) throw new Error("Video upload failed");
       setReel((current) => current ? { ...current, videoUrl: URL.createObjectURL(blob) } : current);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Video render failed");
     } finally {
       setRendering(false);
     }
@@ -136,7 +138,10 @@ export default function ReelPreviewPage() {
 
           <div className="mt-3 flex gap-2">
             <button onClick={() => setMuted((m) => !m)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold ${muted ? "bg-zinc-900 text-white" : "bg-white text-zinc-900 ring-1 ring-zinc-200"}`}>
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4 text-[#16a34a]" />}
+              <span aria-hidden="true" className="relative h-4 w-4">
+                <Volume2 className={`absolute inset-0 h-4 w-4 text-[#16a34a] ${muted ? "hidden" : "block"}`} />
+                <VolumeX className={`absolute inset-0 h-4 w-4 ${muted ? "block" : "hidden"}`} />
+              </span>
               {muted ? "Muted" : "Suno"}
             </button>
             <button

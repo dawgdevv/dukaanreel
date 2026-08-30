@@ -1,5 +1,5 @@
 import { createReel, putAsset, putOriginalAsset } from "@/lib/cloudflare";
-import { createStudioProductPhoto, generateCaption, removeBackground } from "@/lib/providers";
+import { createStudioProductPhoto, createTryOnPhoto, generateCaption, removeBackground } from "@/lib/providers";
 import { isSupportedImageType, processInputSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       price: form.get("price")?.toString() ?? "",
       shopName: form.get("shopName")?.toString() ?? "Apni Dukaan",
       sceneId: form.get("sceneId")?.toString() ?? "white",
+      garmentCategory: form.get("garmentCategory")?.toString() ?? "shirt",
     });
     if (!parsed.success) return Response.json({ error: "Please check price, shop name, and scene" }, { status: 400 });
 
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
     const originalExtension = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
     const originalUpload = putOriginalAsset(`${id}/original.${originalExtension}`, input, image.type);
     const productCutout = await removeBackground(input, image.type);
-    const studioResult = await createStudioProductPhoto(productCutout);
+    const tryOnResult = await createTryOnPhoto(productCutout, parsed.data.garmentCategory);
+    const studioResult = tryOnResult.tryOn ? tryOnResult : await createStudioProductPhoto(productCutout);
     const product = studioResult.bytes;
     const productExtension = studioResult.mimeType === "image/jpeg" ? "jpg" : studioResult.mimeType.split("/")[1] ?? "png";
     const captionPromise = generateCaption(product, parsed.data.price);
@@ -41,6 +43,8 @@ export async function POST(request: Request) {
       sceneId: parsed.data.sceneId,
       imageUrl,
       audioUrl: null,
+      garmentCategory: parsed.data.garmentCategory,
+      modelTemplateId: tryOnResult.templateId,
     });
 
     return Response.json({
@@ -50,7 +54,9 @@ export async function POST(request: Request) {
       capabilities: {
         canRecordVideo: typeof MediaRecorder !== "undefined",
         canUseTts: false,
-        studioPhoto: studioResult.studio,
+        studioPhoto: "studio" in studioResult ? studioResult.studio : false,
+        tryOnPhoto: tryOnResult.tryOn,
+        modelTemplateId: tryOnResult.templateId,
       },
     });
   } catch (error) {

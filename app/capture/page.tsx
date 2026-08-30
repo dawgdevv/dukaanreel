@@ -16,6 +16,7 @@ export default function CapturePage() {
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [price, setPrice] = useState("799");
   const [shopName, setShopName] = useState("");
+  const [garmentCategory, setGarmentCategory] = useState<"shirt" | "kurti" | "dress" | "saree">("shirt");
   const [captured, setCaptured] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -125,6 +126,7 @@ export default function CapturePage() {
       form.append("price", price);
       form.append("shopName", shopName || "Apni Dukaan");
       form.append("sceneId", "white");
+      form.append("garmentCategory", garmentCategory);
       const response = await fetch("/api/process", { method: "POST", body: form });
       const payload = await response.json() as { reel?: { id: string; imageUrl: string }; error?: string };
       if (!response.ok || !payload.reel) throw new Error(payload.error || "Processing failed");
@@ -180,6 +182,17 @@ export default function CapturePage() {
             className="flex-1 rounded-full bg-black/30 px-3 py-2 text-[12px] font-medium text-white outline-none ring-1 ring-white/20 placeholder:text-white/60 backdrop-blur"
           />
         </div>
+        <select
+          value={garmentCategory}
+          onChange={(e) => setGarmentCategory(e.target.value as typeof garmentCategory)}
+          className="mt-2 w-full rounded-full bg-black/30 px-3 py-2 text-[12px] font-semibold text-white outline-none ring-1 ring-white/20 backdrop-blur"
+          aria-label="Garment type"
+        >
+          <option value="shirt" className="text-zinc-900">Men&apos;s shirt / T-shirt</option>
+          <option value="kurti" className="text-zinc-900">Women&apos;s kurti</option>
+          <option value="dress" className="text-zinc-900">Women&apos;s dress</option>
+          <option value="saree" className="text-zinc-900">Saree</option>
+        </select>
       </div>
 
       {/* Full phone view — 9:16 camera fills screen like native camera app */}
@@ -194,6 +207,7 @@ export default function CapturePage() {
               muted
               className={`absolute inset-0 h-full w-full object-cover ${facing === "user" ? "-scale-x-100" : ""} ${captured ? "hidden" : "block"}`}
             />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             {captured && <img src={captured} alt="captured" className="absolute inset-0 h-full w-full object-cover" />}
             {/* 9:16 guides — subtle */}
             {!captured && <div className="pointer-events-none absolute inset-0 ring-1 ring-white/10" />}

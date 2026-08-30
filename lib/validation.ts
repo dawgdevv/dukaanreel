@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { garmentCategories, type GarmentCategory } from "./model-templates";
 
 export const sceneIds = ["white", "boutique", "street"] as const;
 export type SceneId = (typeof sceneIds)[number];
+export { garmentCategories };
+export type { GarmentCategory };
 
 export const supportedImageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -18,6 +21,7 @@ export const processInputSchema = z.object({
     .refine((value) => value === null || (value >= 0 && value <= 10_000_000), "Price is out of range"),
   shopName: z.string().trim().max(60).optional().default("Apni Dukaan"),
   sceneId: z.enum(sceneIds).default("white"),
+  garmentCategory: z.enum(garmentCategories).default("shirt"),
 });
 
 export type CaptionResult = {
