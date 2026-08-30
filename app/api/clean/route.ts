@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "clean failed";
     console.error(msg);
-    return NextResponse.json({ error: "Photo clean nahi ho paayi. Dobara try karo." }, { status: 502 });
+    return NextResponse.json({ error: "We could not clean the photo. Please try again." }, { status: 502 });
   }
 }
 

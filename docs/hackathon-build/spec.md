@@ -1,4 +1,4 @@
-# DukaanReel Technical Specification
+# 8x.dresses Technical Specification
 
 Status: proposed implementation plan  
 Source brief: [`dukaanreel.md`](../../dukaanreel.md)  

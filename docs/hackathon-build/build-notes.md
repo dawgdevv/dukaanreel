@@ -1,4 +1,4 @@
-# DukaanReel Build Notes
+# 8x.dresses Build Notes
 
 ## Spec session — 2026-08-30
 
