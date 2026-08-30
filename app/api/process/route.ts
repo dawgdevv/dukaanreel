@@ -1,5 +1,5 @@
-import { bindings, createReel, putAsset } from "@/lib/cloudflare";
-import { generateCaption, generateVoice, removeBackground } from "@/lib/providers";
+import { createReel, putAsset } from "@/lib/cloudflare";
+import { createStudioProductPhoto, generateCaption, generateVoice, removeBackground } from "@/lib/providers";
 import { processInputSchema } from "@/lib/validation";
 
 export const runtime = "edge";
@@ -21,11 +21,12 @@ export async function POST(request: Request) {
     if (!parsed.success) return Response.json({ error: "Please check price, shop name, and scene" }, { status: 400 });
 
     const input = new Uint8Array(await image.arrayBuffer());
-    const product = await removeBackground(input, image.type);
+    const productCutout = await removeBackground(input, image.type);
+    const studioResult = await createStudioProductPhoto(productCutout);
+    const product = studioResult.bytes;
     const caption = await generateCaption(product, parsed.data.price);
     const captionText = caption.hashtags.length ? `${caption.caption} ${caption.hashtags.join(" ")}` : caption.caption;
-    const env = await bindings();
-    const id = !env.DB && env.DEMO_MODE === "true" ? "demo-live" : crypto.randomUUID();
+    const id = crypto.randomUUID();
     const imageUrl = await putAsset(`${id}/product.png`, product, "image/png");
     const voice = await generateVoice(captionText);
     const audioUrl = voice ? await putAsset(`${id}/voice.mp3`, voice.bytes, voice.mimeType) : null;
@@ -44,7 +45,11 @@ export async function POST(request: Request) {
       reel,
       uploadToken: btoa(id),
       share: `/r/${id}`,
-      capabilities: { canRecordVideo: typeof MediaRecorder !== "undefined", canUseTts: Boolean(audioUrl) },
+      capabilities: {
+        canRecordVideo: typeof MediaRecorder !== "undefined",
+        canUseTts: Boolean(audioUrl),
+        studioPhoto: studioResult.studio,
+      },
     });
   } catch (error) {
     console.error("process failed", error instanceof Error ? error.message : "unknown error");

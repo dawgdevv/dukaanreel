@@ -46,7 +46,3 @@ export function fallbackCaption(price: number | null): CaptionResult {
   const caption = price === null ? "Ye product fresh hai — DM karo 💛" : `Ye product fresh hai — ₹${price.toLocaleString("en-IN")} only! DM karo 💛`;
   return { productName: "product", caption, hashtags: ["#newarrival", "#dukaanstyle", "#shoplocal"] };
 }
-
-export function preferCapturedImage(captured: string | null, persisted: string, reelId: string): string {
-  return reelId === "demo-live" && captured?.startsWith("data:image/") ? captured : persisted;
-}

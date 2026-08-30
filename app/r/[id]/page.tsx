@@ -39,13 +39,10 @@ export default async function PublicSharePage({ params }: { params: Promise<{ id
       <div className="bg-black p-3">
         <div className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-2xl bg-zinc-900">
           <div className="absolute inset-0 bg-zinc-100" />
-          <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="absolute inset-0">
             {reel.videoUrl && <video src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay muted loop playsInline />}
-            <div className="relative aspect-square w-full max-w-[280px] overflow-hidden rounded-2xl bg-white shadow-xl">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={reel.imageUrl} alt="product" className="h-full w-full object-cover" />
-              <div className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-black text-white">{shopName}</div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={reel.imageUrl} alt="Studio product" className="h-full w-full object-contain" />
           </div>
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/50 to-transparent p-4 pt-10">
             <p className="text-[18px] font-black leading-6 text-white">{caption}</p>

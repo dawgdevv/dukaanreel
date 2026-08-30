@@ -126,8 +126,14 @@ export default function CapturePage() {
       form.append("shopName", shopName || "Apni Dukaan");
       form.append("sceneId", "white");
       const response = await fetch("/api/process", { method: "POST", body: form });
-      const payload = await response.json() as { reel?: { id: string }; error?: string };
+      const payload = await response.json() as { reel?: { id: string; imageUrl: string }; error?: string };
       if (!response.ok || !payload.reel) throw new Error(payload.error || "Processing failed");
+      sessionStorage.removeItem("dukaanreel-capture");
+      try {
+        sessionStorage.setItem("dukaanreel-current", JSON.stringify(payload.reel));
+      } catch {
+        // D1/R2 remain the source of truth when the generated image exceeds browser storage.
+      }
       sessionStorage.setItem("dukaanreel-upload-token", btoa(payload.reel.id));
       sessionStorage.setItem("dukaanreel-last-id", payload.reel.id);
       router.push(`/reel/${payload.reel.id}`);

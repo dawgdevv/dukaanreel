@@ -7,7 +7,13 @@ type D1Statement = { bind: (...values: unknown[]) => D1Statement; all: <T>() => 
 type D1Database = { prepare: (query: string) => D1Statement };
 type R2Bucket = { put: (key: string, value: ArrayBuffer | Uint8Array, options?: { httpMetadata?: { contentType?: string; cacheControl?: string } }) => Promise<unknown> };
 
-type Bindings = { DB?: D1Database; R2?: R2Bucket; ASSET_BASE_URL?: string; DEMO_MODE?: string };
+type Bindings = {
+  DB?: D1Database;
+  R2?: R2Bucket;
+  ASSET_BASE_URL?: string;
+  NEXT_PUBLIC_R2_PUBLIC_URL?: string;
+  DEMO_MODE?: string;
+};
 
 const memory = new Map<string, Reel>();
 
@@ -16,7 +22,11 @@ export async function bindings(): Promise<Bindings> {
     const context = await getCloudflareContext({ async: true });
     return (context.env ?? {}) as Bindings;
   } catch {
-    return { DEMO_MODE: process.env.DEMO_MODE ?? "true", ASSET_BASE_URL: process.env.ASSET_BASE_URL };
+    return {
+      DEMO_MODE: process.env.DEMO_MODE ?? "true",
+      ASSET_BASE_URL: process.env.ASSET_BASE_URL,
+      NEXT_PUBLIC_R2_PUBLIC_URL: process.env.NEXT_PUBLIC_R2_PUBLIC_URL,
+    };
   }
 }
 
@@ -96,7 +106,7 @@ export async function updateReelVideo(id: string, videoUrl: string): Promise<Ree
 
 export async function putAsset(key: string, value: Uint8Array, contentType: string): Promise<string> {
   const env = await bindings();
-  const baseUrl = env.ASSET_BASE_URL?.replace(/\/$/, "");
+  const baseUrl = (env.ASSET_BASE_URL ?? env.NEXT_PUBLIC_R2_PUBLIC_URL)?.replace(/\/$/, "");
   if (env.R2) {
     await env.R2.put(key, value, { httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" } });
     if (baseUrl) return `${baseUrl}/${key}`;

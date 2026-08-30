@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildWhatsAppUrl,
   normalizeCaption,
-  preferCapturedImage,
   processInputSchema,
 } from "@/lib/validation";
 
@@ -45,9 +44,4 @@ it("encodes Hindi WhatsApp share text", () => {
   const url = buildWhatsAppUrl("Ye kurti fresh hai", "/r/abc123", "799");
   expect(url).toContain("wa.me/?text=");
   expect(decodeURIComponent(url.split("?text=")[1])).toContain("₹799");
-});
-
-it("prefers the captured product over a demo placeholder", () => {
-  expect(preferCapturedImage("data:image/jpeg;base64,cap", "https://example.com/sari.jpg", "demo-live"))
-    .toBe("data:image/jpeg;base64,cap");
 });

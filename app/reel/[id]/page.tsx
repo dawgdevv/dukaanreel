@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Volume2, VolumeX, Pencil, Download, Share2, Play, Check, Heart } from "lucide-react";
 import { SCENES } from "@/lib/mock";
-import { preferCapturedImage } from "@/lib/validation";
 import { renderReelVideo } from "@/lib/media/render-reel";
 
 type PreviewReel = {
@@ -14,7 +13,8 @@ type PreviewReel = {
   videoUrl: string | null;
   audioUrl: string | null;
   caption: string;
-  price: string;
+  price: number | null;
+  shopName: string;
 };
 
 export default function ReelPreviewPage() {
@@ -32,17 +32,31 @@ export default function ReelPreviewPage() {
   const [rendering, setRendering] = useState(false);
 
   useEffect(() => {
+    const applyReel = (data: PreviewReel) => {
+      setReel(data);
+      setCaption(data.caption);
+      setPrice(data.price === null ? "" : `₹${data.price.toLocaleString("en-IN")}`);
+      setShop(data.shopName || "Apni Dukaan");
+    };
+    let hasCachedReel = false;
+    try {
+      const cached = JSON.parse(sessionStorage.getItem("dukaanreel-current") ?? "null") as PreviewReel | null;
+      if (cached?.id === id) {
+        hasCachedReel = true;
+        applyReel(cached);
+      }
+    } catch {
+      sessionStorage.removeItem("dukaanreel-current");
+    }
+
     fetch(`/api/reels/${id}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error("Reel not found"))))
       .then(({ reel: data }) => {
-        const captured = sessionStorage.getItem("dukaanreel-capture");
-        const imageUrl = preferCapturedImage(captured, data.imageUrl, id);
-        setReel({ ...data, imageUrl, price: data.price === null ? "" : `₹${data.price.toLocaleString("en-IN")}` });
-        setCaption(data.caption);
-        setPrice(data.price === null ? "" : `₹${data.price.toLocaleString("en-IN")}`);
-        setShop(data.shopName || "Apni Dukaan");
+        applyReel(data);
       })
-      .catch(() => setReel(null));
+      .catch(() => {
+        if (!hasCachedReel) setReel(null);
+      });
   }, [id]);
 
   const makeVideo = async () => {
@@ -91,13 +105,11 @@ export default function ReelPreviewPage() {
           {reel.videoUrl && <video src={reel.videoUrl} className="absolute inset-0 z-10 h-full w-full object-cover" autoPlay muted={!isPlaying} loop playsInline />}
           <div className={`absolute inset-0 ${activeScene.bg} transition-colors`} />
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, black 1px, transparent 0)", backgroundSize: "20px 20px" }} />
-          <div className="absolute inset-0 flex items-center justify-center p-8">
-            <div className="relative w-full max-w-[260px] aspect-square overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={reel.imageUrl} alt="product" className="h-full w-full object-cover" />
-              <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-black text-white backdrop-blur">
-                {shop || "Apni Dukaan"}
-              </div>
+          <div className="absolute inset-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={reel.imageUrl} alt="Studio product" className="h-full w-full object-contain" />
+            <div className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-black text-white backdrop-blur">
+              {shop || "Apni Dukaan"}
             </div>
           </div>
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent p-4 pt-12">

@@ -39,11 +39,10 @@ export async function renderReelVideo(options: {
     gradient.addColorStop(1, "#ffffff");
     context.fillStyle = gradient;
     context.fillRect(0, 0, 1080, 1920);
-    const size = 720;
     const scale = 0.96 + Math.sin(progress * Math.PI) * 0.04;
-    const x = (1080 - size * scale) / 2;
-    const y = 370 + Math.sin(progress * Math.PI) * 12;
-    context.drawImage(image, x, y, size * scale, size * scale);
+    const width = 1080 * scale;
+    const height = 1920 * scale;
+    context.drawImage(image, (1080 - width) / 2, (1920 - height) / 2, width, height);
     context.fillStyle = "#18181b";
     context.font = "900 54px Arial";
     context.fillText(options.shopName || "Apni Dukaan", 64, 150);
